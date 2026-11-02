@@ -1,0 +1,35 @@
+{
+    "name": "버스로",
+    "short_name": "버스로",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#F7F8F4",
+    "theme_color": "#3B7861",
+    "description": "대전의 일상을 잇는, 여유로운 버스 길찾기 버스로.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
