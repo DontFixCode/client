@@ -20,7 +20,7 @@ class RouteTimeline extends StatelessWidget {
       ),
       _TimelineStop(
         title: route.boardingStop,
-        subtitle: '${route.waitMinutes}분 대기 후 탑승 · 예시',
+        subtitle: '${route.waitMinutes}분 대기 후 탑승',
         icon: Icons.directions_bus_rounded,
         badge: BusNumberChip(route.busNumbers.first),
         detail: route.transfers == 0

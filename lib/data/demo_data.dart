@@ -1,4 +1,5 @@
 import '../models/place.dart';
+import '../models/stop_arrival.dart';
 import '../models/travel_route.dart';
 
 /// UI 체험용 데이터입니다. 실제 노선, 운행 시각, 예측 확률이 아닙니다.
@@ -80,6 +81,11 @@ abstract final class DemoData {
       category: '지원 지역 밖',
       supported: false,
     ),
+  ];
+
+  static const stopArrivals = <StopArrival>[
+    StopArrival(routeNo: '605', remainingSeconds: 240, stopsAway: 2),
+    StopArrival(routeNo: '102', remainingSeconds: 120, stopsAway: 1),
   ];
 
   static List<TravelRoute> routes(Place origin, Place destination) {

@@ -676,7 +676,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              '예시 도착 예상 ${route.waitMinutes}분\n${route.boardingStop}',
+                              '도착 예상 ${route.waitMinutes}분\n${route.boardingStop}',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),

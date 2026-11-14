@@ -54,7 +54,11 @@ class SplashPage extends StatelessWidget {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          const RouteMap(height: 240),
+                          const RouteMap(
+                            height: 240,
+                            originLabel: '대전역',
+                            destinationLabel: '한밭수목원',
+                          ),
                           Positioned(
                             bottom: 18,
                             left: 18,

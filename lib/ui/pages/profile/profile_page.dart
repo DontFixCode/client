@@ -364,6 +364,12 @@ class ProfilePage extends StatelessWidget {
                         action: '로그아웃',
                       )) {
                         state.signOut();
+                        if (!context.mounted) return;
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.welcome,
+                          (_) => false,
+                        );
                       }
                     },
                   ),

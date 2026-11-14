@@ -10,14 +10,14 @@ class RouteMap extends StatelessWidget {
     super.key,
     this.height = 240,
     this.showRoute = true,
-    this.originLabel = '대전역',
-    this.destinationLabel = '한밭수목원',
+    required this.originLabel,
+    this.destinationLabel,
     this.activeStep = 0,
   });
   final double height;
   final bool showRoute;
   final String originLabel;
-  final String destinationLabel;
+  final String? destinationLabel;
   final int activeStep;
 
   @override
@@ -41,11 +41,12 @@ class RouteMap extends StatelessWidget {
             bottom: 24,
             child: _MapLabel(originLabel, icon: Icons.trip_origin_rounded),
           ),
-          Positioned(
-            right: 20,
-            top: height * .28,
-            child: _MapLabel(destinationLabel, icon: Icons.flag_rounded),
-          ),
+          if (destinationLabel != null)
+            Positioned(
+              right: 20,
+              top: height * .28,
+              child: _MapLabel(destinationLabel!, icon: Icons.flag_rounded),
+            ),
           const Positioned(
             right: 12,
             bottom: 10,

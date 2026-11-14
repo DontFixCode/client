@@ -74,7 +74,7 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
                     onPressed: () =>
                         Navigator.pop(context, DemoData.places.first),
                     icon: const Icon(Icons.my_location_rounded, size: 18),
-                    label: const Text('현재 위치 사용 · 체험 위치: 대전역'),
+                    label: const Text('현재 위치 사용'),
                   ),
                 ),
               ),
