@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/app_routes.dart';
+import '../../../data/demo_data.dart';
 import '../../../models/place.dart';
+import '../../../models/stop_arrival.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/bus_logo.dart';
 import '../../widgets/demo_notice.dart';
+import '../../widgets/kakao_place_map.dart';
 import '../../widgets/route_map.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/status_pill.dart';
@@ -37,6 +40,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    final arrivals = DemoData.stopArrivals;
     return SafeArea(
       bottom: false,
       child: CustomScrollView(
@@ -165,26 +169,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.my_location_rounded,
-                        size: 13,
-                        color: AppColors.muted,
-                      ),
-                      SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          '현재 위치 기능은 대전역을 예시로 사용해요.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
@@ -340,24 +324,20 @@ class HomePage extends StatelessWidget {
                           ),
                         ),
                         const Divider(),
-                        _ArrivalRow(
-                          number: '605',
-                          direction: '시청역 방면',
-                          time: '4분',
-                          color: AppColors.primary,
-                          onTap: () => _showStop(context),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 18),
-                          child: Divider(),
-                        ),
-                        _ArrivalRow(
-                          number: '102',
-                          direction: '정부청사역 방면',
-                          time: '2분',
-                          color: AppColors.blue,
-                          onTap: () => _showStop(context),
-                        ),
+                        for (var i = 0; i < arrivals.length; i++) ...[
+                          if (i > 0)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 18),
+                              child: Divider(),
+                            ),
+                          _ArrivalRow(
+                            arrival: arrivals[i],
+                            color: i.isEven
+                                ? AppColors.primary
+                                : AppColors.blue,
+                            onTap: () => _showStop(context),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -423,11 +403,19 @@ class HomePage extends StatelessWidget {
                 style: TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 18),
-              RouteMap(
-                height: 200,
-                originLabel: state.origin.name,
-                showRoute: false,
-              ),
+              if (KakaoPlaceMap.available &&
+                  state.origin.id == 'daejeon_station')
+                const KakaoPlaceMap(
+                  height: 200,
+                  latitude: 36.3324,
+                  longitude: 127.4342,
+                )
+              else
+                RouteMap(
+                  height: 200,
+                  originLabel: state.origin.name,
+                  showRoute: false,
+                ),
               const SizedBox(height: 18),
               const DemoNotice(message: '예시 정류장·도착 시간입니다. 실제 운행정보가 아닙니다.'),
               const SizedBox(height: 16),
@@ -492,13 +480,11 @@ class _PlaceField extends StatelessWidget {
 
 class _ArrivalRow extends StatelessWidget {
   const _ArrivalRow({
-    required this.number,
-    required this.direction,
-    required this.time,
+    required this.arrival,
     required this.color,
     required this.onTap,
   });
-  final String number, direction, time;
+  final StopArrival arrival;
   final Color color;
   final VoidCallback onTap;
   @override
@@ -513,7 +499,7 @@ class _ArrivalRow extends StatelessWidget {
           SizedBox(
             width: 46,
             child: Text(
-              number,
+              arrival.routeNo,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: color,
@@ -523,12 +509,12 @@ class _ArrivalRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              direction,
+              arrival.stopsAwayText,
               style: const TextStyle(fontSize: 12, color: AppColors.muted),
             ),
           ),
           Text(
-            time,
+            arrival.minutesText,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,
