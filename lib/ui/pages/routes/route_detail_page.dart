@@ -5,6 +5,8 @@ import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/api_action.dart';
+import '../../widgets/route_geometry.dart';
 import '../../widgets/demo_notice.dart';
 import '../../widgets/route_card.dart';
 import '../../widgets/route_map.dart';
@@ -18,6 +20,15 @@ class RouteDetailPage extends StatelessWidget {
 
   Future<void> _start(BuildContext context) async {
     final state = AppScope.of(context);
+    if (state.busy) return;
+    if (route.isLive &&
+        (!route.startable ||
+            (route.expiresAt?.isBefore(DateTime.now()) ?? false))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이 경로는 지금 시작할 수 없어요. 새로 검색해 주세요.')),
+      );
+      return;
+    }
     if (state.activeRoute != null) {
       final replace = await showDialog<bool>(
         context: context,
@@ -44,8 +55,11 @@ class RouteDetailPage extends StatelessWidget {
         return;
       }
     }
-    state.startJourney(route);
-    if (context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
+    final ok = await apiAction(context, () async {
+      if (state.activeRoute != null) await state.cancelJourney();
+      await state.startJourney(route);
+    });
+    if (ok && context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
   }
 
   @override
@@ -61,16 +75,22 @@ class RouteDetailPage extends StatelessWidget {
             Row(
               children: [
                 StatusPill(
-                  route.recommended
+                  route.recommended && !route.isLive
                       ? '여유 있는 환승'
+                      : route.recommended
+                      ? '서버 추천 경로'
                       : route.transfers == 0
                       ? '환승 없는 경로'
-                      : '환승 1회',
+                      : '환승 ${route.transfers}회',
                   icon: Icons.route_rounded,
                 ),
                 const Spacer(),
-                const Text(
-                  '경로 체험',
+                Text(
+                  route.estimated
+                      ? '배차간격 기반 예상'
+                      : route.isLive
+                      ? '서버 경로'
+                      : '경로 체험',
                   style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
@@ -81,15 +101,16 @@ class RouteDetailPage extends StatelessWidget {
               style: textTheme.headlineSmall,
             ),
             const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Wrap(
+              spacing: 14,
+              crossAxisAlignment: WrapCrossAlignment.end,
               children: [
-                Text('${route.minutes}분', style: textTheme.displaySmall),
+                Text(route.minutesLabel, style: textTheme.displaySmall),
                 const SizedBox(width: 14),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    '도보 ${route.walkMinutes}분 · 환승 ${route.transfers}회',
+                    '${route.walkLabel} · 환승 ${route.transfers}회',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.muted,
@@ -101,14 +122,17 @@ class RouteDetailPage extends StatelessWidget {
             const SizedBox(height: 20),
             RouteSegmentBar(route: route),
             const SizedBox(height: 22),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: RouteMap(
-                height: 230,
-                originLabel: route.origin.name,
-                destinationLabel: route.destination.name,
+            if (route.isLive)
+              RouteGeometry(legs: route.legs)
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: RouteMap(
+                  height: 230,
+                  originLabel: route.origin.name,
+                  destinationLabel: route.destination.name,
+                ),
               ),
-            ),
             const SizedBox(height: 20),
             AppCard(
               color: AppColors.primaryLight,
@@ -154,7 +178,9 @@ class RouteDetailPage extends StatelessWidget {
                         Expanded(
                           child: _Metric(
                             label: '환승 성공 가능성',
-                            value: route.probabilityLabel,
+                            value: route.isLive && route.transfers > 1
+                                ? '연결별 확인'
+                                : route.probabilityLabel,
                           ),
                         ),
                         Container(
@@ -165,7 +191,9 @@ class RouteDetailPage extends StatelessWidget {
                         Expanded(
                           child: _Metric(
                             label: '환승 여유',
-                            value: route.marginMinutes == null
+                            value: route.isLive && route.transfers > 1
+                                ? '연결별 확인'
+                                : route.marginMinutes == null
                                 ? '확인 불가'
                                 : '${route.marginMinutes}분',
                           ),
@@ -181,7 +209,11 @@ class RouteDetailPage extends StatelessWidget {
             const SizedBox(height: 20),
             AppCard(child: RouteTimeline(route: route)),
             const SizedBox(height: 24),
-            const DemoNotice(message: '노선·지도·예측은 UI 체험을 위한 예시예요'),
+            DemoNotice(
+              message: route.isLive
+                  ? '시간·확률은 검색 시점 평가이며 이후 달라질 수 있어요.'
+                  : '노선·지도·예측은 UI 체험을 위한 예시예요',
+            ),
           ],
         ),
       ),
@@ -191,7 +223,10 @@ class RouteDetailPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
           child: FilledButton.icon(
             key: const ValueKey('startJourneyButton'),
-            onPressed: () => _start(context),
+            onPressed:
+                AppScope.of(context).busy || (route.isLive && !route.startable)
+                ? null
+                : () => _start(context),
             icon: const Icon(Icons.near_me_rounded, size: 18),
             label: const Text('이 경로로 안내 시작'),
           ),

@@ -5,6 +5,7 @@ import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/demo_notice.dart';
+import '../../widgets/data_reason.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/route_card.dart';
 
@@ -16,21 +17,53 @@ class RouteResultsPage extends StatefulWidget {
 
 class _RouteResultsPageState extends State<RouteResultsPage> {
   int _sort = 0;
+  AppState? _state;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_state == null) {
+      _state = AppScope.of(context);
+      if (!_state!.demoMode) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _state!.searchRoutes();
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _state?.stopSearchPolling();
+    super.dispose();
+  }
+
+  int _time(TravelRoute a, TravelRoute b) =>
+      (a.minutes ?? 0x7fffffff).compareTo(b.minutes ?? 0x7fffffff);
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final routes = List<TravelRoute>.of(state.routeOptions);
-    if (_sort == 1) routes.sort((a, b) => a.minutes.compareTo(b.minutes));
+    if (_sort == 1) routes.sort((a, b) => _time(a, b));
     if (_sort == 2) {
       routes.sort((a, b) {
         final transfers = a.transfers.compareTo(b.transfers);
-        return transfers == 0 ? a.minutes.compareTo(b.minutes) : transfers;
+        return transfers == 0 ? _time(a, b) : transfers;
       });
     }
     final samePlace = state.destination?.id == state.origin.id;
     return Scaffold(
-      appBar: AppBar(title: const Text('경로 비교')),
+      appBar: AppBar(
+        title: const Text('경로 비교'),
+        actions: [
+          if (!state.demoMode)
+            IconButton(
+              tooltip: '새로 검색',
+              onPressed: state.searchLoading ? null : state.searchRoutes,
+              icon: const Icon(Icons.refresh),
+            ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: Column(
@@ -110,8 +143,37 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                 ],
               ),
             ),
+            if (!state.demoMode && state.searchResult != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                child: Text(
+                  _searchMessage(state),
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ),
             Expanded(
-              child: routes.isEmpty
+              child: !state.demoMode && state.searchLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : !state.demoMode &&
+                        (state.searchError != null || routes.isEmpty)
+                  ? EmptyState(
+                      icon: Icons.route_outlined,
+                      title: state.searchError != null
+                          ? '경로 검색을 완료하지 못했어요'
+                          : '검색 결과 안내',
+                      message: state.searchError ?? _searchMessage(state),
+                      action: FilledButton(
+                        onPressed: state.searchResult?['status'] == 'processing'
+                            ? state.refreshSearch
+                            : state.searchRoutes,
+                        child: Text(
+                          state.searchResult?['status'] == 'processing'
+                              ? '결과 다시 확인'
+                              : '다시 검색',
+                        ),
+                      ),
+                    )
+                  : routes.isEmpty
                   ? EmptyState(
                       icon: samePlace
                           ? Icons.trip_origin_rounded
@@ -130,10 +192,12 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                       itemCount: routes.length + 1,
                       separatorBuilder: (_, _) => const SizedBox(height: 16),
                       itemBuilder: (context, index) => index == routes.length
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               child: DemoNotice(
-                                message: '예시 노선·시간·확률이며 실제 운행정보가 아니에요',
+                                message: state.demoMode
+                                    ? '예시 노선·시간·확률이며 실제 운행정보가 아니에요'
+                                    : '확률은 특정 연결 버스의 시간상 탑승 가능성이에요. 자료가 없으면 확인 불가로 표시해요.',
                               ),
                             )
                           : RouteCard(
@@ -151,4 +215,34 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
       ),
     );
   }
+}
+
+String _searchMessage(AppState state) {
+  final result = state.searchResult;
+  if (result?['expired'] == true) return '검색 유효기간이 지났어요. 새로 검색해 주세요.';
+  final message = switch (result?['status']) {
+    'processing' => '서버에서 경로를 계산하고 있어요. 잠시 후 결과를 다시 확인해 주세요.',
+    'data_limited' => '자료가 부족해 일부 시간·확률 또는 지원 범위를 확인할 수 없어요.',
+    'no_path' => '설정된 탐색 범위 안에서 경로를 찾지 못했어요.',
+    'out_of_scope' => '출발지 또는 도착지가 지원 구간 밖이에요.',
+    'error' => '서버에서 검색을 완료하지 못했어요. 다시 검색해 주세요.',
+    'ready' => '서버에서 계산한 경로예요.',
+    _ => '출발지와 도착지를 확인해 주세요.',
+  };
+  final coverage = result?['coverage'];
+  final truncated =
+      coverage?['searchTruncated'] == true ||
+      coverage?['evaluationTruncated'] == true;
+  final reasons = List<String>.from(result?['reasonCodes'] ?? [])
+      .where(
+        (code) =>
+            code == 'headway_estimates_only' ||
+            code == 'ranked_with_headway_estimate',
+      )
+      .map(dataReason)
+      .toSet();
+  return [
+    '$message${truncated ? ' 탐색이 일부 제한되어 전체 최적 경로를 보장하지 않아요.' : ''}',
+    ...reasons,
+  ].join('\n');
 }

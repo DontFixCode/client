@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../config/app_routes.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/api_action.dart';
 import 'widgets/auth_scaffold.dart';
 
 class LoginPage extends StatefulWidget {
@@ -25,11 +26,15 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     final email = _email.text.trim();
-    AppScope.of(context).signIn(name: email.split('@').first, email: email);
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
+    final state = AppScope.of(context);
+    if (await apiAction(context, () => state.login(email, _password.text)) &&
+        mounted) {
+      _password.clear();
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
+    }
   }
 
   @override
@@ -94,21 +99,25 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _login, child: const Text('로그인')),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: () {
-              AppScope.of(context)
-                  .signIn(name: '버스로 여행자', email: 'demo@busro.example');
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                AppRoutes.main,
-                (_) => false,
-              );
-            },
-            icon: const Icon(Icons.directions_bus_outlined, size: 19),
-            label: const Text('체험 계정으로 시작'),
+          FilledButton(
+            onPressed: AppScope.of(context).busy ? null : _login,
+            child: Text(AppScope.of(context).busy ? '로그인 중…' : '로그인'),
           ),
+          const SizedBox(height: 14),
+          if (AppScope.of(context).demoMode)
+            OutlinedButton.icon(
+              onPressed: () {
+                AppScope.of(context)
+                    .signIn(name: '버스로 여행자', email: 'demo@busro.example');
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.main,
+                  (_) => false,
+                );
+              },
+              icon: const Icon(Icons.directions_bus_outlined, size: 19),
+              label: const Text('체험 계정으로 시작'),
+            ),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

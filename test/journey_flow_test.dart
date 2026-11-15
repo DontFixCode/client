@@ -55,7 +55,7 @@ void main() {
   testWidgets(
     'transfer guide saves the selected outcome and history can delete it',
     (tester) async {
-      final state = AppState();
+      final state = AppState(demoMode: true);
       final route = DemoData.routes(
         DemoData.places[0],
         DemoData.places[1],
@@ -96,7 +96,7 @@ void main() {
   );
 
   testWidgets('direct journey skips both transfer stages', (tester) async {
-    final state = AppState();
+    final state = AppState(demoMode: true);
     final route = DemoData.routes(
       DemoData.places[0],
       DemoData.places[1],
@@ -122,7 +122,7 @@ void main() {
   testWidgets(
     'leaving preserves progress and cancellation requires confirmation',
     (tester) async {
-      final state = AppState();
+      final state = AppState(demoMode: true);
       state.startJourney(
         DemoData.routes(DemoData.places[0], DemoData.places[1]).first,
       );
@@ -146,7 +146,7 @@ void main() {
   );
 
   testWidgets('guide without an active route can open search', (tester) async {
-    final state = AppState();
+    final state = AppState(demoMode: true);
     addTearDown(state.dispose);
     await tester.pumpWidget(
       AppScope(
@@ -171,7 +171,7 @@ void main() {
   testWidgets(
     'boarding correction survives resume and resets for the connecting bus',
     (tester) async {
-      final state = AppState();
+      final state = AppState(demoMode: true);
       state.startJourney(
         DemoData.routes(DemoData.places[0], DemoData.places[1]).first,
       );

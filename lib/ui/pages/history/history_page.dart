@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../config/app_routes.dart';
 import '../../../models/journey_record.dart';
+import '../../../data/bus_api.dart';
+import '../../../models/place.dart';
+import '../../../models/travel_route.dart';
+import '../../widgets/api_action.dart';
+import '../../widgets/route_timeline.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -190,6 +195,7 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    if (!state.demoMode) return _serverHistory(context, state);
     final records = state.history;
     return Scaffold(
       appBar: AppBar(
@@ -310,4 +316,170 @@ class HistoryPage extends StatelessWidget {
             ),
     );
   }
+
+  Widget _serverHistory(BuildContext context, AppState state) => Scaffold(
+    appBar: AppBar(
+      title: const Text('이용기록'),
+      automaticallyImplyLeading: false,
+      actions: [
+        IconButton(
+          tooltip: '기록 새로고침',
+          onPressed: state.busy
+              ? null
+              : () => apiAction(context, state.loadHistory),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
+    body: ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        if (!state.isLoggedIn) const Text('이동 기록은 로그인 후 조회할 수 있어요.'),
+        if (state.syncError != null)
+          Text(
+            state.syncError!,
+            style: const TextStyle(color: AppColors.error),
+          ),
+        if (state.isLoggedIn && state.serverHistory.isEmpty)
+          const Text('저장된 이동 기록이 없어요.'),
+        for (final item in state.serverHistory)
+          Card(
+            child: ListTile(
+              title: Text(
+                '${item['origin']?['name'] ?? '출발지'} → ${item['destination']?['name'] ?? '목적지'}',
+              ),
+              subtitle: Text(
+                '${_lifecycle(item['lifecycleStatus'])} · ${_serverDate(item['endedAt'] ?? item['startedAt'])}',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      _ServerHistoryDetail(id: item['journeyId'] as String),
+                ),
+              ),
+            ),
+          ),
+        if (state.historyCursor != null)
+          TextButton(
+            onPressed: state.busy
+                ? null
+                : () => apiAction(context, () => state.loadHistory(more: true)),
+            child: const Text('이전 기록 더 보기'),
+          ),
+        const SizedBox(height: 20),
+        const Text(
+          '기록 삭제·환승 성공/실패 결과 입력은 아직 서버에서 지원하지 않아요.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}
+
+String _lifecycle(dynamic status) => switch (status) {
+  'active' => '진행 중',
+  'completed' => '도착 확인 완료',
+  'cancelled' => '안내 취소',
+  _ => '확인 불가',
+};
+String _serverDate(dynamic value) =>
+    DateTime.tryParse(value?.toString() ?? '')
+        ?.toLocal()
+        .toString()
+        .split('.')
+        .first ??
+    '시각 확인 불가';
+
+class _ServerHistoryDetail extends StatefulWidget {
+  const _ServerHistoryDetail({required this.id});
+  final String id;
+  @override
+  State<_ServerHistoryDetail> createState() => _ServerHistoryDetailState();
+}
+
+class _ServerHistoryDetailState extends State<_ServerHistoryDetail> {
+  Future<Json>? _data;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _data ??= AppScope.of(context).api.request('GET', '/journeys/${widget.id}');
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('이동 기록 상세')),
+    body: FutureBuilder<Json>(
+      future: _data,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(snapshot.error.toString()),
+                  TextButton(
+                    onPressed: () => setState(
+                      () =>
+                          _data = AppScope.of(context).api
+                              .request('GET', '/journeys/${widget.id}'),
+                    ),
+                    child: const Text('다시 불러오기'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final data = snapshot.data!, selected = data['selectedRoute'] as Json;
+        final route = TravelRoute.fromJson(
+          selected,
+          searchId: selected['searchId'] as String,
+          origin: Place.fromJson(selected['origin'] as Json),
+          destination: Place.fromJson(selected['destination'] as Json),
+        );
+        final state = AppScope.of(context);
+        return ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              _lifecycle(data['lifecycleStatus']),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Text('시작: ${_serverDate(data['startedAt'])}'),
+            if (data['endedAt'] != null)
+              Text('종료: ${_serverDate(data['endedAt'])}'),
+            const SizedBox(height: 16),
+            Text('${route.origin.name} → ${route.destination.name}'),
+            Text('선택 당시 예상: ${route.minutesLabel} · 환승 ${route.transfers}회'),
+            const SizedBox(height: 24),
+            RouteTimeline(route: route),
+            if (data['lifecycleStatus'] == 'active')
+              FilledButton(
+                onPressed: state.busy
+                    ? null
+                    : () async {
+                        if (await apiAction(
+                              context,
+                              () => state.restoreJourney(widget.id),
+                            ) &&
+                            context.mounted) {
+                          Navigator.pushNamed(context, AppRoutes.guide);
+                        }
+                      },
+                child: const Text('진행 중 안내 이어보기'),
+              ),
+            const SizedBox(height: 20),
+            const Text('환승 결과는 아직 입력되지 않았어요. 결과 제출·기록 삭제는 준비 중이에요.'),
+          ],
+        );
+      },
+    ),
+  );
 }

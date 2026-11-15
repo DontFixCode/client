@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../state/app_state.dart';
+
 import '../../../theme/app_theme.dart';
 import '../../../widgets/bus_logo.dart';
 import '../../../widgets/demo_notice.dart';
@@ -37,7 +39,11 @@ class AuthScaffold extends StatelessWidget {
                 const SizedBox(height: 32),
                 child,
                 const SizedBox(height: 30),
-                const DemoNotice(message: '화면 체험 모드 · 실제 계정 인증 없이 동작해요'),
+                DemoNotice(
+                  message: AppScope.of(context).demoMode
+                      ? '화면 체험 모드 · 실제 계정 인증 없이 동작해요'
+                      : '이메일 계정으로 인증 서버에 연결합니다.',
+                ),
               ],
             ),
           ),

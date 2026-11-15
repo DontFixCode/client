@@ -41,7 +41,7 @@ void main() {
   testWidgets('login rejects malformed email and a short password', (
     tester,
   ) async {
-    final state = AppState();
+    final state = AppState(demoMode: true);
     await _showAuth(tester, state, const LoginPage());
     await tester.enterText(find.byType(TextFormField).at(0), 'invalid-email');
     await tester.enterText(find.byType(TextFormField).at(1), '1234');
@@ -55,7 +55,7 @@ void main() {
   testWidgets(
     'signup requires matching passwords and both notices before creating a demo session',
     (tester) async {
-      final state = AppState();
+      final state = AppState(demoMode: true);
       await _showAuth(tester, state, const SignupPage());
       await tester.enterText(find.byType(TextFormField).at(0), '대전 여행자');
       await tester.enterText(
@@ -95,7 +95,7 @@ void main() {
   testWidgets('valid login opens the profile with the local demo identity', (
     tester,
   ) async {
-    final state = AppState();
+    final state = AppState(demoMode: true);
     await _showAuth(tester, state, const LoginPage());
     await tester.enterText(
       find.byType(TextFormField).at(0),
@@ -114,7 +114,7 @@ void main() {
   testWidgets(
     'profile name edit saves, reopens with saved text and preserves it on cancel',
     (tester) async {
-      final state = AppState()
+      final state = AppState(demoMode: true)
         ..signIn(name: '초록 여행자', email: 'traveler@example.com');
       await _showAuth(tester, state, const ProfilePage());
       await _tap(tester, find.byTooltip('이름 변경'));
@@ -151,7 +151,7 @@ void main() {
   testWidgets(
     'password reset acknowledges the demo without claiming an email was sent',
     (tester) async {
-      final state = AppState();
+      final state = AppState(demoMode: true);
       await _showAuth(tester, state, const ForgotPasswordPage());
       await tester.enterText(
         find.byType(TextFormField),
@@ -159,7 +159,7 @@ void main() {
       );
       await _tap(tester, find.widgetWithText(FilledButton, '재설정 안내 확인'));
 
-      expect(find.text('이메일을 확인했어요'), findsOneWidget);
+      expect(find.text('이메일을 확인해 주세요'), findsOneWidget);
       expect(
         find.text('체험 버전에서는 이메일을 발송하지 않아요.\n실제 비밀번호도 변경되지 않습니다.'),
         findsOneWidget,

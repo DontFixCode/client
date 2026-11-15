@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../config/app_routes.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/api_action.dart';
 import 'widgets/auth_scaffold.dart';
 
 class SignupPage extends StatefulWidget {
@@ -32,15 +33,34 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _signup() {
+  Future<void> _signup() async {
     final valid = _formKey.currentState!.validate();
     setState(() => _showAgreementError = !_serviceAgreed || !_privacyAgreed);
-    if (!valid || _showAgreementError) return;
-    AppScope.of(context)
-        .signIn(name: _name.text.trim(), email: _email.text.trim());
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('반가워요! 버스로 화면 체험을 시작합니다.')));
+    if (!valid || _showAgreementError) {
+      return;
+    }
+    final state = AppScope.of(context);
+    bool signedIn = false;
+    if (!await apiAction(context, () async {
+          signedIn = await state.signup(
+            _name.text.trim(),
+            _email.text.trim(),
+            _password.text,
+          );
+        }) ||
+        !mounted) {
+      return;
+    }
+    _password.clear();
+    _confirmation.clear();
+    if (signedIn) {
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.main, (_) => false);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('가입 확인 이메일을 보냈어요. 이메일 인증 후 로그인해 주세요.')),
+      );
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    }
   }
 
   void _showTerms(bool privacy) {
@@ -61,7 +81,11 @@ class _SignupPageState extends State<SignupPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                privacy
+                !AppScope.of(this.context).demoMode
+                    ? (privacy
+                          ? '가입 정보는 인증 서버에, 이름과 이동 기록은 서비스 서버에 저장됩니다. 정식 개인정보 처리방침과 보관·삭제 기준은 서비스 출시 전 확정이 필요합니다.'
+                          : '경로·확률은 확보한 교통 자료 범위에서 제공됩니다. 자료가 부족한 경우 확인 불가로 표시합니다. 지도·백그라운드 알림과 일부 기능은 준비 중입니다.')
+                    : privacy
                     ? '현재는 프론트엔드 체험 버전입니다. 입력한 이름과 이메일은 앱 실행 중에만 사용하며 외부로 전송하지 않습니다. 비밀번호는 저장하지 않습니다. 앱을 다시 시작하면 체험 정보가 초기화됩니다.'
                     : '버스로는 대전에서의 편안한 버스 이동을 돕는 서비스입니다. 현재 경로와 환승 확률, 지도 및 운행정보는 화면 체험을 위한 예시이며 실제 이동 안내에 사용할 수 없습니다. 실제 계정은 생성되지 않습니다.',
               ),
@@ -206,7 +230,10 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
           const SizedBox(height: 20),
-          FilledButton(onPressed: _signup, child: const Text('가입하고 시작하기')),
+          FilledButton(
+            onPressed: AppScope.of(context).busy ? null : _signup,
+            child: Text(AppScope.of(context).busy ? '가입 처리 중…' : '가입하고 시작하기'),
+          ),
           const SizedBox(height: 14),
           TextButton(
             onPressed: () =>

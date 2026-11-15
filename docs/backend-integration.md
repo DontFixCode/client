@@ -1,0 +1,168 @@
+# 프론트엔드–백엔드 연동 결과
+
+Flutter `client`는 2026-11-13 기준 로컬 백엔드 HEAD `3202017c26ed2aed7ad0e38c70c594cc6cd2353c`의 라우터·응답 뷰·상태 전이를 기준으로 연결했습니다. 이후 사용자 승인에 따라 버스 프로젝트의 서버 배포·인증 설정을 변경해 SSH 없이 접속하는 HTTPS 주소를 구성했습니다. 기존 백엔드 소스, DB 스키마, 인증 키는 변경하지 않았으며 커밋·푸시도 수행하지 않았습니다. 배포 이미지와 로컬 코드의 정확한 커밋 일치 및 교통 데이터 준비 상태는 별도 확인 항목입니다.
+
+참고 사양은 [Function](https://app.notion.com/p/4kang/Function-3f6eeac83dec801eaa94e003ce22654d), [Backend](https://app.notion.com/p/4kang/Backend-400eeac83dec805f9b24e2f3592b9d35), [API Endpoints](https://app.notion.com/p/4kang/API-Endpoints-404eeac83dec80afb7c1d7a9e52b8f77)입니다. 노션에 설계된 기능과 현재 코드에 구현된 기능을 구분합니다. 전체 맥락은 [Capstone Design 2](https://app.notion.com/p/4kang/Capstone-Design-2-3d5eeac83dec80ddb0bfe5bb8b72085b?pvs=11)에서 확인할 수 있습니다.
+
+2026-11-12 추가된 [route-searches 사양](https://app.notion.com/p/4kang/route-searches-411eeac83dec81e89d6fcb124c080d5f)의 예상 경로·ETA 출처·후보 필터링을 함께 확인했습니다. 노션은 참고용으로만 읽었으며 수정하지 않았습니다.
+
+## 실제 서버 연결 상태
+
+2026-11-15 `UI_week1`의 `fd3badc` 화면 변경을 로컬에 병합했습니다. 인증·검색·이동·기록 API 연결과 실제/체험 데이터 분기를 유지했습니다. 홈은 출발지가 미설정일 때 권한을 확인해 현재 위치를 자동 설정하며, 이 자동 조회만으로 위치를 서버에 전송하지 않습니다. 지도 키는 담당자에게 받은 뒤 `config/backend.local.json`의 `KAKAO_NATIVE_KEY`에 추가합니다. 현재 키가 없어 카카오 지도 타일은 검증하지 않았으며 기존 개념도를 사용합니다.
+
+| 앱 설정 | 현재 값 |
+| --- | --- |
+| `API_BASE_URL` | `https://121.153.148.189:18443` |
+| `SUPABASE_URL` | `https://121.153.148.189:18443` |
+| `AUTH_REDIRECT_URL` | `busro://auth-callback` |
+
+`SUPABASE_URL`에는 `/auth/v1`을 붙이지 않습니다. 실제 주소와 공개 anon 키는 Git에서 제외된 `client/config/backend.local.json`에 저장했습니다. 키 값은 이 문서에 기록하지 않습니다. SSH 터널은 필요하지 않습니다. `client` 폴더에서 다음과 같이 실행합니다.
+
+```sh
+flutter run
+```
+
+외부 Mac에서 SSH 터널 없이 TLS 인증서 검증을 켠 공개 HTTPS 주소로 Auth 설정 조회(`200`), 기존 테스트 계정 로그인(`200`), 새 issuer가 포함된 사용자 토큰 발급, 해당 토큰으로 `GET /api/v1/me` 조회(`200`)를 확인했습니다. 인증서의 공인 IP SAN도 접속 주소와 일치합니다. iOS 시뮬레이터에서도 일반 `flutter run`으로 기존 계정 로그인·회원정보 표시·로그아웃을 확인했습니다. 신규 가입은 아래 SMTP 문제로 막혀 있으며, 인증메일 수신·비밀번호 재설정 메일 및 실제 버스 이동 전체 흐름은 검증이 남아 있습니다.
+
+2026-11-13 19:18 KST 가입 실패를 운영 Auth 컨테이너 설정과 로그로 확인했습니다. `GOTRUE_MAILER_AUTOCONFIRM=false`로 이메일 인증이 필요하지만 SMTP 주소는 `supabase-mail:2500`, 계정·비밀번호·발신자는 예시 값입니다. `/signup` 로그는 `lookup supabase-mail on 127.0.0.11:53: server misbehaving`과 HTTP `500`을 기록했습니다. 클라이언트 연결은 정상이며 메일 서버를 찾지 못한 것이 직접 원인입니다. 이 진단에서는 서버 설정·백엔드 코드를 수정하지 않았습니다.
+
+## 서버 공개 설정과 운영 경로
+
+- 별도 Compose 프로젝트 `bus-public-auth`가 `18443` 포트에서 HTTPS 요청을 받습니다. `/auth/v1/*`는 버스 Supabase 게이트웨이로, `/api/v1/*`는 버스 백엔드로 전달하며 API WebSocket 업그레이드도 전달하도록 구성했습니다. `/rest/v1/*`, `/pg/*` 등 다른 경로는 `404`로 응답합니다.
+- 호스트 Nginx에는 버스 인증서 검증용 `zz-bus-public-ip.conf`만 추가하고 graceful reload를 수행했습니다. 기존 Nginx 설정 파일은 수정하지 않았습니다. 공인 IP의 HTTP `80` 요청 중 ACME 인증서 검증 경로만 제공하고 나머지는 기존 `404` 동작을 유지합니다.
+- 버스 Supabase `.env`의 `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, `ADDITIONAL_REDIRECT_URLS`와 버스 백엔드 `.env.api`의 `BACKEND_AUTH_JWT_ISSUER`를 변경했습니다. 공개 기본 주소는 위 표와 같고 Auth URL·issuer는 `https://121.153.148.189:18443/auth/v1`입니다. 앱 복귀 허용 목록에는 `busro://auth-callback`을 추가했습니다.
+- 변경 반영을 위해 버스 프로젝트의 Auth, API 게이트웨이, 백엔드 API·워커만 기존과 동일한 이미지로 재생성했습니다. 다른 프로젝트는 변경 대상에서 제외했습니다.
+- Let's Encrypt 공인 IP 인증서의 유효기간은 [160시간](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability)입니다. 버스 전용 Certbot 5.4 컨테이너와 별도 인증서 디렉터리를 사용하며, `/etc/cron.d/bus-auth-renew`에 `17 3,15 * * *`로 서버 시각 기준 매일 03:17·15:17 갱신 확인을 설정했습니다. 인증서가 바뀌면 앱용 `proxy`와 관리용 `studio-proxy`를 각각 검사하고 reload합니다. 한쪽이 실패해도 다른 쪽은 계속 처리하며, 둘 다 성공해야 해시를 저장하므로 실패 시 다음 실행에서 재시도합니다. 이 동작은 모의 테스트를 통과했습니다. 공용 Certbot 설치·인증서 디렉터리는 사용하지 않습니다.
+- 서버 배포 파일: `/home/gmlrud/bus-transfer-supabase/deployment/public-auth`.
+- 변경 전 설정 백업: `/home/gmlrud/bus-transfer-supabase/deployment/backups/public-auth-20261113T165540`. Supabase·백엔드 환경변수 백업과 변경 전 Nginx 파일·컨테이너 상태 기록을 보관합니다.
+- 배포 검증 기록: `/home/gmlrud/bus-transfer-supabase/deployment/public-auth/verification.json`.
+
+issuer 변경 전에 발급된 사용자 토큰은 새 백엔드 검증에서 거부될 수 있으므로 기존 앱 세션은 다시 로그인해 확인해야 합니다.
+
+## Studio 관리 접속
+
+| 항목 | 값 |
+| --- | --- |
+| 관리 주소 | `https://121.153.148.189:18444` |
+| HTTP Basic 관리자 이름 | `bus-admin` |
+| 로컬 관리자 자격 증명 파일 | `/Users/choyeonwoo/.codex/private/bus-studio-admin.json` |
+
+브라우저에서 관리 주소를 열고 인증창에 관리자 이름과 위 파일의 비밀번호를 입력합니다. 이 계정은 새로 만든 HTTP Basic 관리 계정이며, Supabase Auth의 앱 회원이나 PostgreSQL 사용자와 별개입니다. 기존 SSH 터널의 `18080`에서 보던 동일한 Studio·DB에 외부 접속용 인증을 추가한 것으로, DB를 이동하거나 복제하지 않았습니다. 접속한 관리자는 버스 DB 수정과 관리 키 열람 등 Studio의 전체 관리 권한을 갖습니다. 개발자별 권한을 나누는 RBAC 구성은 아닙니다. 앱의 `API_BASE_URL`·`SUPABASE_URL`은 기존 `18443` 주소를 계속 사용합니다.
+
+256비트 무작위 비밀번호는 로컬 파일에 권한 `600`으로 저장했으며, 이 문서에는 비밀번호나 해시 값을 기록하지 않습니다. 서버에는 `/var/lib/bus-auth/admin/studio.htpasswd`에 해시를 저장하고 상위 디렉터리 권한을 `700`으로 설정했습니다.
+
+- 기존 `bus-public-auth` Compose에 `studio-proxy` 서비스와 `bus-public-auth-studio-proxy-1` 컨테이너만 추가했습니다. 외부 `18444`를 컨테이너의 TLS `443`으로 연결하고, 기존 `bus-transfer-supabase-studio-1:3000`으로 전달합니다. 서비스 이름은 기존 Docker DNS의 `studio` 별칭과 겹치지 않게 지정했습니다. 기존 Supabase Studio는 그대로 사용하며 이 작업으로 재생성하지 않았습니다.
+- 모든 Studio 경로를 Nginx Basic 인증으로 보호합니다. `/mcp`, `/api/mcp` 접두 경로와 다른 Origin의 요청은 `403`으로 차단하며, Basic 인증의 `Authorization` 헤더는 내부 Studio에 전달하지 않습니다. 이번 Studio 추가 작업에서 호스트 Nginx·방화벽 파일은 변경하지 않았습니다.
+- 인증 없음·잘못된 비밀번호는 HTML·정적 파일·관리 API에서 `401`로 차단되는 것을 확인했습니다. 올바른 관리자 인증으로 HTML·정적 파일·프로젝트 및 테이블 조회 API의 `200` 응답을 확인했습니다. `pg-meta/query`로 읽기 전용 SQL `select count(*) as user_count from auth.users;`도 `200` 응답을 확인했으며 결과 값이나 개인정보는 기록하지 않았습니다. 브라우저 자동화가 Basic 인증창을 처리하지 못해 실제 화면 클릭은 검증하지 않았습니다.
+- 현재 서버 스택에는 Storage·Realtime 서비스가 없고, 기존 Studio의 `PUBLIC_URL`은 `http://localhost:18080`입니다. 이 값은 변경하지 않았습니다. DB·SQL·Auth 관리와 별개로 Storage 파일 URL이나 Realtime 검사기의 완전한 동작은 보장하지 않습니다.
+- Studio 공개 설정 전 백업: `/home/gmlrud/bus-transfer-supabase/deployment/backups/studio-public-20261113T172425`.
+- Studio 추가 직전 상태와 비교해 기존 Nginx·앱 프록시·환경변수 파일 33개의 해시와 수정 시각, 기존 컨테이너 30개의 ID·시작 시각·재시작 횟수가 모두 동일합니다. 기존 Compose의 `proxy` 서비스 설정도 동일하며, 추가된 컨테이너는 `bus-public-auth-studio-proxy-1` 하나입니다. 다른 프로젝트 9개 사이트의 HTTP 상태 코드도 전후 동일합니다.
+- 기존 앱 주소 `18443`의 비밀번호 로그인과 `GET /api/v1/me`를 다시 확인해 각각 `200` 응답을 받았습니다. 인증서 갱신 확인은 종료 코드 `0`으로 완료됐으며 Cron 활성 상태와 인증서 해시 일치도 확인했습니다. 검증 기록은 `/home/gmlrud/bus-transfer-supabase/deployment/public-auth/studio-verification.json`에 저장했습니다.
+
+## 이번 백엔드 변경 반영
+
+- 검색 후보의 `estimated`와 구간 ETA의 `etaSource: headway_estimate`를 반영해 배차간격 기반 예상 경로를 구분합니다. 이동을 복원하는 `selectedRoute`에는 `estimated`가 없으므로 구간 ETA로도 판별합니다. 예상 차량의 식별자가 null이면 실제 차량번호로 채우지 않습니다.
+- 서버가 중복 차량 조합을 정리하고 실시간 후보를 배차간격 예상 후보보다 먼저 반환합니다. 추천순은 서버 순서를 따르며, 사용자 선택 정렬과 구분합니다. 확률이 없으면 임의 수치·별점으로 대체하지 않습니다.
+- `headway_estimate`와 `leading_vehicle_gap`의 계산 근거, 시간·차량 정보의 제한 사유를 표시합니다. 운행 중 차량의 앞차 기반 근사와 아직 출발하지 않은 차량의 배차간격 예상은 구분해야 합니다.
+- ODsay 노선 형상 제공처가 구현됐습니다. 형상과 버전을 보존하고 출처·수집 시각·미확보 사유를 표시합니다. 제공처 미설정, 미수집, 해당 노선 미제공, 정류소 대응 실패를 구분하며 실제 도로를 임의로 만들지 않습니다.
+- 이동 안내의 `nextBoarding.upcoming`, `onboard.alightEta`, `arrival` 정보를 화면에 연결합니다. 상태 버전이 맞는 서버 안내만 사용하며 검색 시점의 값을 최신 안내처럼 대체하지 않습니다. 현재 탑승 수정에서는 확인된 노선·패턴·방향을 보존합니다.
+
+주요 근거: [검색 응답](../../capstone-backend/app/modules/routing/views.py), [ETA 계산](../../capstone-backend/app/modules/evaluation/eta.py), [추천 순서](../../capstone-backend/app/modules/recommendation/service.py), [이동 응답](../../capstone-backend/app/modules/journeys/service.py), [형상 제공처](../../capstone-backend/app/integrations/route_shapes_api.py).
+
+## API와 화면 연결
+
+| 서버 기능 | 연결한 화면·처리 |
+| --- | --- |
+| Supabase Auth | 로그인, 가입, 이메일 인증 대기, 로그아웃, 인증 세션 복원·갱신, 재설정 메일·새 비밀번호 |
+| `GET/PATCH /api/v1/me` | 로그인 후 프로필 로드, 내정보 이름 변경 |
+| `GET /places/search` | 출발·도착 장소 검색. 제공처 미구현 503은 오류로 표시 |
+| `POST/GET /route-searches` | 검색 접수·폴링·재조회, 후보 비교·정렬·상세, 배차간격 예상 구분, 시작 제한·만료 표시 |
+| `POST /journeys`, `GET /journeys/{id}` | 안내 시작·상태 복구, 계정당 활성 이동 1개 처리 |
+| `POST /journeys/{id}/events` | board·alight·correction(현재 탑승)·completed·cancelled, 상태 버전·중복 방지 키 |
+| `PUT /journeys/{id}/location` | 사용자가 위치 전송을 선택한 뒤 전경 GPS 전송 |
+| `WS /journeys/{id}/stream` | 첫 메시지 토큰 인증, 다음 승차·하차 ETA·도착 평가 반영, 버전 검증·재연결 |
+| `GET /journeys` | 서버 기록·취소·진행 상태 조회, 커서 페이지네이션, 안내 이어보기 |
+| `GET /stops/nearby`, `/stops/{id}`, `/routes`, `/arrivals` | 홈의 정류소·노선 정보 → 주변 정류소·상세·경유 노선·도착정보 |
+| `GET /routes`, `/routes/{id}`, `/patterns`, `/patterns/{key}/stops`, `/shapes/{key}`, `/positions` | 노선 검색 → 노선 상세 → 운행 순서·경유 정류소·제공 형상·수집된 차량 위치 |
+| `GET /static-data/version` | 정적 교통정보 공개 상태 확인 |
+
+위 표에서 상대 경로는 모두 `/api/v1` 아래입니다. 내부 노선·정류소 ID는 문자열로 보존합니다. 버스 번호와 내부 ID를 혼용하지 않습니다.
+
+## 서버 기능이 추가되어야 하는 부분
+
+| 우선순위 | 부족한 기능 | 확인 근거와 현재 화면 처리 |
+| --- | --- | --- |
+| 높음 | 장소·주소 검색 제공처 | `places_api.PROVIDERS`가 비어 있어 설정만으로는 사용할 수 없음. 오류와 GPS·좌표 입력 제공 |
+| 높음 | 노선·방향 자체의 탑승 확인 불가 저장 | `BoardPayload.confirmation`에 확인 불가 값이 없고, 필드를 생략하면 계획 노선·user_confirmed로 처리함. 확인 불가를 누르면 이벤트를 전송하지 않고 안내 유지. 차량번호만 모르는 경우는 null 전송 |
+| 높음 | 이동 중 대안 탐색·놓친 버스·목적지 변경·대안 수락/거절 | `missed_bus`, `destination_changed`, `route_accepted/rejected`는 422 UNSUPPORTED_EVENT_TYPE. 실제 안내에서 체험 추천 팝업을 표시하지 않음 |
+| 높음 | 환승 성공/실패/확인 불가 결과 제출 | `transfer_result` 미구현. 완료는 completed 이벤트만 전송하며 결과 저장으로 표시하지 않음. 예측과 실제 결과를 연결한 성능 검증은 아직 완성되지 않음 |
+| 높음 | 회원 탈퇴·Auth 차단·기록 삭제 | `DELETE /me`, `DELETE /journeys/{id}` 라우트 없음. 실제 모드의 탈퇴 버튼 비활성화·삭제 기능 미제공 |
+| 높음 | 검증된 예측 근거 확보 | ETA 기준 시각, 차량 식별, 실제 오차 표본·확률 검증 자료가 부족하면 서버가 null을 반환함. 임의 시간·확률을 채우지 않음 |
+| 중간 | 하차 임박·환승 알림 계약 | 스트림은 상태 전체 동기화만 제공함. 남은 정류장 수·알림 조건·payload 계약 필요 |
+
+버스 형상은 더 이상 제공처 미구현 항목이 아닙니다. ODsay 어댑터·수집 워커는 구현돼 있지만 배포 설정과 노선별 수집 결과에 따라 여전히 미확보일 수 있습니다. 형상 상태는 검색 구간의 `geometryStatus`에서 소문자, 노선 형상 API의 `status`에서 대문자로 반환합니다.
+
+## 백엔드 담당자에게 요청할 정보
+
+| 우선순위 | 요청 항목 | 받을 내용·확인 기준 |
+| --- | --- | --- |
+| 높음 | 신규 가입·메일 인증 검증 | 공개 접속 주소·anon 키·앱 복귀 주소 설정과 기존 계정 로그인은 확인 완료. 신규 회원가입, SMTP 발송, 인증메일·비밀번호 재설정 링크의 실제 앱 복귀 동작과 운영 절차는 추가 확인 필요 |
+| 우선 | 배포 버전·검증된 테스트 사례 | 배포 커밋, API·워커 가동 여부, 정적 공개본과 마이그레이션 적용 상태. 노션 예시가 현재 배포 데이터에서 동작하는지와 내부 정류소/노선 ID, 직행·환승·배차간격 예상·자료 부족을 재현할 사례 및 기대 응답 |
+| 높음 | 장소·주소 검색 결정 | 사용할 지도/장소 공급자, 앱 SDK 직접 검색인지 백엔드 경유인지, 검색 응답·호출 제한·빈 결과 정책과 구현 일정. 현재 `places_api.PROVIDERS`가 비어 있어 환경변수만 설정해도 동작하지 않음 |
+| 높음 | ETA·배차간격 의미 통일 | `provider`·`historical_segments`·`leading_vehicle_gap`·`headway_estimate`별 의미, 검증 상태, 사용자 표시 문구, 최신성/만료 기준. 검색은 배차간격을 분으로 해석하지만 노선 상세 `serviceInfo.headway`는 `UNIT_UNCONFIRMED`, `seconds: null` 및 다음 차량 예측에 쓰지 않는다는 설명을 반환하므로 계약 정리 필요 |
+| 높음 | 미구현 이동 이벤트 | `missed_bus`, `destination_changed`, `route_accepted`, `route_rejected`, `transfer_result`의 구현 일정, payload 예시, 상태 전이·409 충돌·멱등 재전송 규칙. 환승 결과는 성공/실패/확인 불가와 수정, 예측 스냅샷 연결 기준 포함 |
+| 높음 | 탑승 확인 불가 | 차량번호만 모르는 경우와 노선·방향 자체를 확인할 수 없는 경우를 각각 저장하는 요청값·상태·응답. 현재 confirmation 생략은 `user_confirmed`여서 확인 불가를 표현할 수 없음 |
+| 높음 | 계정·기록 삭제 | `DELETE /me`, `DELETE /journeys/{id}` 구현 일정, 탈퇴 시 Auth 차단·활성 이동·기록 처리, 재시도와 보관/삭제 정책 |
+| 중간 | ODsay 형상 배포 상태 | 제공처 활성화 여부, 현재 수집된 노선·패턴 범위와 테스트 ID, 갱신 주기·한도 초과 시 동작, 출처 표시·이용 조건. 미확보/오류 응답 예시와 형상 버전·ETag 사용 기준 |
+| 중간 | 하차·환승 알림 | 프론트엔드와 함께 알림 조건·표시 문구 확정 후 event type/payload, 남은 정류장 수의 근거, 중복 방지·유효기간·백그라운드 전달 방식. 현재 WS 상태 동기화만으로 하차 임박 알림이 구현된 것은 아님 |
+
+[API 테스트 데이터](https://app.notion.com/p/4kang/API-412eeac83dec81cfae46e29aa6f399c8)에는 대전시청 좌표 `36.3504, 127.3845`, 노선번호 `102`, 시청→대전역 검색 예시가 이미 있습니다. 접속 주소와 인증 설정은 확보했으며, 추가로 필요한 것은 현재 배포 데이터에서의 유효한 ID와 기대 결과입니다. 시간에 따라 달라지는 교통정보는 재현 가능한 시각·조건도 함께 받아야 합니다.
+
+ETA 확인 시 특히 필요한 제약: 현재 배차간격 추정은 한국 시각의 평일·토요일·일요일을 구분하지만 공휴일·시간대별 배차는 구분하지 못합니다. 앞차 기반 근사와 배차간격 추정의 검증 대기 범위는 서버 담당자가 확인해야 합니다. 클라이언트에서 `serviceInfo` 원값을 임의로 초 단위 ETA로 변환하지 않습니다. 코드 근거는 [배차간격 적용](../../capstone-backend/app/workflows/search.py), [노선 상세 응답](../../capstone-backend/app/modules/transit/views.py), [지원 이벤트 payload](../../capstone-backend/app/modules/journeys/schemas.py), [WS 이벤트](../../capstone-backend/app/realtime/events.py)입니다.
+
+선택된 승차 예상의 출처도 필요합니다. 현재 `guidance.nextBoarding`에는 `predictedArrivalAt`·`vehicle`만 있고 `etaSource`·`basisSource`는 없습니다. 두 필드가 있는 `upcoming`·`onboard.alightEta`처럼 제공하면 선택된 승차 예상도 같은 기준으로 구분할 수 있습니다. 현재 화면에서는 출처를 추정하지 않고 일반적인 ‘예상’으로 표시합니다.
+
+## 프론트엔드 후속 기능·UI
+
+- 실제 경로의 배경 지도·현재 위치 마커·지도에서 위치 선택·실제 도보 길안내. 카카오 SDK는 키 설정 시 체험 정류장 위치를 표시하도록 연결했으며, 실제 경로는 제공 형상을 배경 없이 표시하거나 구간 목록을 보여줍니다.
+- 백그라운드 위치·운영체제 알림·권한 거부 후 설정 이동·배터리 정책 안내·실기기 검증. 현재 GPS는 사용자 선택 후 전경에서 사용합니다.
+- 확인 불가 응답 API가 생긴 뒤 탑승 상태에 반영하는 UI. 확인 불가를 확인된 계획 차량으로 바꾸면 안 됩니다.
+- 하차 장소를 계획과 다르게 입력하거나 과거 탑승·하차를 수정하는 UI. 서버 correction은 탑승·하차 모두 지원하지만 현재 UI는 활성 이동의 탑승 수정만 제공합니다.
+- 대안의 추가 도보·탑승 가능성·변경되는 남은 경로를 비교하고 수락/거절하는 UI. 서버 Phase 5 구현 후 연결해야 합니다.
+- 환승마다 결과 입력·결과 수정·도착 평가 UI. 서버 Phase 6 구현 후 예측 스냅샷과 연결해야 합니다.
+- 저장한 장소의 영속 보관·계정 간 동기화. 현재 저장한 장소는 메모리에만 보관됩니다.
+- 정식 이용약관·개인정보 처리방침·위치 및 이동 기록 보관·삭제 정책. 현재 안내문은 구현 상태를 설명하며 정식 정책 문서를 대체하지 않습니다.
+- 이동 검색의 최대 탑승 횟수는 현재 서버 정책에서 결정됩니다. 사용자별 설정 UI는 서버 요청 계약에 없는 값을 전송하지 않습니다.
+
+## 연결 설정·운영 확인
+
+- API·워커·DB·Supabase가 모두 필요합니다. 경로 검색은 API가 접수하고 워커가 계산합니다. 워커가 없으면 processing 상태가 지속됩니다.
+- 검색 설정·정적 공개본·도보 제공처·교통 자료 준비 상태에 따라 검색이 503 또는 data_limited가 될 수 있습니다.
+- JWT 검증 issuer·audience·서명 설정은 사용하는 Supabase와 일치해야 합니다. 공개 클라이언트 키와 사용자 access token만 앱에서 사용합니다.
+- 공개 HTTPS 프록시와 모바일 인증 복귀 주소를 설정했습니다. 현재 FastAPI에는 CORS 미들웨어가 없으므로 다른 origin에서 실행하는 Flutter 웹은 기존 개발 프록시 또는 별도 CORS 설정이 필요합니다. 공개 HTTPS 주소 설정만으로 웹 CORS가 해결되는 것은 아닙니다.
+- 백엔드 담당자에게 실제 발송 가능한 SMTP의 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_ADMIN_EMAIL`, `SMTP_SENDER_NAME` 설정을 요청해야 합니다. 현재 예시 SMTP 서버를 찾지 못해 신규 가입이 실패합니다. 설정 후 가입 인증메일 수신·링크 복귀·로그인·비밀번호 재설정을 확인해야 합니다. 앱에는 메일 요청과 복구 세션의 비밀번호 변경 UI를 연결했습니다.
+- 이벤트 전송 결과가 불명확하면 같은 키·같은 본문으로 재전송합니다. 상태 충돌 시 상태를 다시 읽고 사용자에게 재확인을 요청합니다. 화면을 나가거나 앱이 백그라운드로 가는 것만으로 cancelled를 전송하지 않습니다.
+- 연결 끊김이나 오래된 위치는 안내 제한 상태로 표시합니다. 위치·연결 미수신을 근거로 이동을 자동 취소하거나 완료하지 않습니다.
+- 자동 검색 조회는 최대 약 60회이며 이후 수동 재조회할 수 있습니다. 재접속 시 최신 서버 상태로 복구합니다. 재시작 후에는 마지막 GPS 구독을 자동으로 시작하지 않고 사용자가 다시 선택합니다.
+
+## 검증 범위
+
+`flutter analyze`, 기존 체험 흐름 테스트, 추가 계약 테스트, 웹 빌드로 검증합니다. 추가 테스트는 인증 헤더·query·큰 ID 보존, 비동기 검색, null 평가, 다중 환승, Supabase SDK 로그인·이름 수정·로그아웃, 이벤트 응답 유실 재전송, 상태 충돌, 오래된 스트림 차단, 작은 화면 레이아웃과 미구현 기능의 표시를 확인합니다.
+
+2026-11-13 클라이언트 코드 변경 검증 결과:
+
+- `flutter analyze`: 문제 없음.
+- `flutter test --reporter expanded`: 전체 35개 통과. 새 계약 검증은 예상 후보·이동 복구·추천 순서, 구간 ETA 표시, 승하차 안내·미제공/불일치, 차량 수정 시 실제 노선 보존, ODsay 형상 출처·미확보 구분을 포함합니다.
+- `flutter build web`: 성공.
+- `python3 -m unittest discover -s tool -p 'test_*.py'`: 개발 프록시 테스트 1개 통과.
+- `git diff --check`: 문제 없음. 로컬 백엔드 작업 트리는 변경 없음.
+
+위 테스트는 응답 계약에 맞춘 대역과 로컬 빌드 검증입니다. 이후 앱 공개 주소(`18443`)를 최초 배포할 때 다음과 같이 별도로 검증했습니다. Studio(`18444`)의 추가 구성과 검증 범위는 위 관리 접속 항목에 기록했습니다.
+
+- 외부 Mac에서 SSH 터널 없이 표준 TLS 인증서 검증, Auth 설정 조회, 기존 계정 로그인, 새 issuer 확인, 프로필 API 호출을 통과했습니다. 클라이언트 로컬 설정 파일에도 공개 주소와 anon 키를 반영했습니다.
+- 공개 WebSocket 경로 `/api/v1/journeys/{id}/stream`에서 임시 UUID로 HTTP `101` 응답과 `Sec-WebSocket-Accept` 값을 확인했습니다. 인증 메시지를 보내기 전에 연결을 닫았으므로 실제 여정 인증·상태 동기화는 검증 범위에 포함하지 않습니다.
+- 운영 인증서 설정으로 `certbot renew --dry-run --no-random-sleep-on-renew`가 종료 코드 `0`으로 성공했습니다. Cron 서비스가 활성화되어 있으며 현재 인증서 해시와 프록시에 반영된 인증서 해시 기록이 일치합니다.
+- 기존 Nginx 설정 28개 파일의 SHA-256과 수정 시각이 모두 동일합니다. 기존 컨테이너 29개 중 버스 Auth·API 게이트웨이·백엔드 API·워커 4개만 재생성됐고, 나머지는 컨테이너 ID·시작 시각·재시작 횟수가 동일합니다. 버스 DB도 그대로 유지됐으며 새 컨테이너는 버스 HTTPS 프록시 1개뿐입니다.
+- 다른 프로젝트의 기존 9개 사이트는 변경 전후 HTTP 상태 코드가 동일합니다. 버스 환경변수 파일도 지정한 공개 URL·issuer·앱 복귀 설정 외에는 백업과 동일합니다. 로컬 백엔드 작업 트리도 변경이 없습니다.
+
+신규 가입·메일, 실제 경로 검색과 워커 계산, 공공 데이터, 실기기 위치·백그라운드 및 전체 이동 흐름은 아직 현장 검증이 필요합니다.

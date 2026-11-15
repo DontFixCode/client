@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/app_routes.dart';
+import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bus_logo.dart';
 import '../widgets/route_map.dart';
@@ -54,7 +55,11 @@ class SplashPage extends StatelessWidget {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          const RouteMap(height: 240),
+                          const RouteMap(
+                            height: 240,
+                            originLabel: '대전역',
+                            destinationLabel: '한밭수목원',
+                          ),
                           Positioned(
                             bottom: 18,
                             left: 18,
@@ -149,8 +154,10 @@ class SplashPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 7),
-                    const Text(
-                      '대전 일부 구간 · 프론트엔드 체험 버전',
+                    Text(
+                      AppScope.of(context).demoMode
+                          ? '대전 일부 구간 · 프론트엔드 체험 버전'
+                          : '대전 버스 · 확보된 교통 자료 범위에서 안내',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 10, color: AppColors.muted),
                     ),

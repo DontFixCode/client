@@ -11,7 +11,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const BusroApp());
+    await tester.pumpWidget(const BusroApp(demoMode: true));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('먼저 둘러보기'));
     await tester.tap(find.text('먼저 둘러보기'));

@@ -30,7 +30,7 @@ void _phoneSize(WidgetTester tester) {
 void main() {
   testWidgets('장소를 검색해 즐겨찾기를 바꾸고 선택한 경로를 비교한다', (tester) async {
     _phoneSize(tester);
-    final state = AppState();
+    final state = AppState(demoMode: true);
     addTearDown(state.dispose);
     await tester.pumpWidget(_app(state, const MainPage()));
 
@@ -94,7 +94,8 @@ void main() {
 
   testWidgets('출발지와 도착지가 같거나 지원 지역 밖이면 빈 경로를 안내한다', (tester) async {
     _phoneSize(tester);
-    final state = AppState()..setDestination(DemoData.places.first);
+    final state = AppState(demoMode: true)
+      ..setDestination(DemoData.places.first);
     addTearDown(state.dispose);
     await tester.pumpWidget(_app(state, const RouteResultsPage()));
     expect(find.text('출발지와 도착지가 같아요'), findsOneWidget);
@@ -109,7 +110,7 @@ void main() {
 
   testWidgets('빠른순과 환승 적은순이 경로 순서를 바꾸며 미확인 확률을 표시한다', (tester) async {
     _phoneSize(tester);
-    final state = AppState()..setDestination(DemoData.places[1]);
+    final state = AppState(demoMode: true)..setDestination(DemoData.places[1]);
     addTearDown(state.dispose);
     await tester.pumpWidget(_app(state, const RouteResultsPage()));
     expect(

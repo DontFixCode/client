@@ -46,3 +46,11 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# 로컬 연결 설정 (공개 클라이언트 키만 사용)
+/config/backend.local.json
+/config/web.local.json
+
+# 로컬 개발 프록시 캐시
+__pycache__/
+*.pyc

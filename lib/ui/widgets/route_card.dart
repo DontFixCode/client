@@ -46,11 +46,15 @@ class RouteCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          if (route.estimated) ...[
+            const StatusPill('배차간격 기반 예상', background: AppColors.amberLight),
+            const SizedBox(height: 12),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${route.minutes}',
+                route.minutes?.toString() ?? '미정',
                 style: textTheme.displaySmall?.copyWith(fontSize: 34),
               ),
               const Padding(
@@ -65,7 +69,7 @@ class RouteCard extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Text(
-                    '도보 ${route.walkMinutes}분 · 환승 ${route.transfers}회',
+                    '${route.walkLabel} · 환승 ${route.transfers}회',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.muted,
@@ -126,7 +130,11 @@ class RouteCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    probability == null ? '환승 확률 확인 불가' : '환승 성공 가능성',
+                    route.isLive && route.transfers > 1
+                        ? '환승 ${route.transfers}회 · 상세에서 연결별 평가 확인'
+                        : probability == null
+                        ? '환승 확률 확인 불가'
+                        : '환승 성공 가능성',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -160,7 +168,9 @@ class RouteCard extends StatelessWidget {
                 ),
               ],
             ),
-          if (route.recommended) ...[
+          if (route.recommended ||
+              route.estimated ||
+              (route.isLive && !route.startable)) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -218,58 +228,75 @@ class RouteSegmentBar extends StatelessWidget {
   const RouteSegmentBar({super.key, required this.route});
   final TravelRoute route;
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(flex: 8, child: _walkSegment()),
-      for (var i = 0; i < route.busNumbers.length; i++) ...[
-        const SizedBox(width: 4),
-        if (i > 0) ...[
-          Tooltip(
-            message: route.marginMinutes == null
-                ? '환승 여유 확인 불가'
-                : '환승 여유 ${route.marginMinutes}분',
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.amber,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                route.marginMinutes == null ? '미정' : '${route.marginMinutes}분',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) => route.isLive
+      ? Wrap(
+          spacing: 6,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (var i = 0; i < route.busNumbers.length; i++) ...[
+              if (i > 0) const Icon(Icons.chevron_right, size: 16),
+              BusNumberChip(route.busNumbers[i], blue: i > 0),
+            ],
+          ],
+        )
+      : Row(
+          children: [
+            Expanded(flex: 8, child: _walkSegment()),
+            for (var i = 0; i < route.busNumbers.length; i++) ...[
+              const SizedBox(width: 4),
+              if (i > 0) ...[
+                Tooltip(
+                  message: route.marginMinutes == null
+                      ? '환승 여유 확인 불가'
+                      : '환승 여유 ${route.marginMinutes}분',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.amber,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      route.marginMinutes == null
+                          ? '미정'
+                          : '${route.marginMinutes}분',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                flex: route.transfers == 0 ? 80 : 36,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: i == 0 ? AppColors.primary : AppColors.blue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    route.busNumbers[i],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-        Expanded(
-          flex: route.transfers == 0 ? 80 : 36,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            decoration: BoxDecoration(
-              color: i == 0 ? AppColors.primary : AppColors.blue,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              route.busNumbers[i],
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ],
-      const SizedBox(width: 4),
-      Expanded(flex: 8, child: _walkSegment()),
-    ],
-  );
+            ],
+            const SizedBox(width: 4),
+            Expanded(flex: 8, child: _walkSegment()),
+          ],
+        );
 
   Widget _walkSegment() => Container(
     height: 7,

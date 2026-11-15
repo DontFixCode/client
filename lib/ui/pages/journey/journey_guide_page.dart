@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'live_journey_guide.dart';
+
 import '../../../config/app_routes.dart';
 import '../../../models/journey_record.dart';
 import '../../../models/travel_route.dart';
@@ -41,7 +43,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
               const StatusPill('새 환승 제안', icon: Icons.alt_route_rounded),
               const SizedBox(height: 16),
               Text(
-                '${route.minutes - alternative.minutes}분 더 빠른 환승 경로가 있어요',
+                '${route.minutes! - alternative.minutes!}분 더 빠른 환승 경로가 있어요',
                 style: Theme.of(context).textTheme.headlineSmall
                     ?.copyWith(color: AppColors.primaryDark),
               ),
@@ -409,6 +411,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    if (!state.demoMode) return const LiveJourneyGuide();
     final route = state.activeRoute;
     if (route == null) {
       return Scaffold(

@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'ui/pages/auth/reset_password_page.dart';
 
 import 'config/app_routes.dart';
 import 'models/travel_route.dart';
@@ -14,16 +19,50 @@ import 'ui/pages/splash_page.dart';
 import 'ui/theme/app_theme.dart';
 
 class BusroApp extends StatefulWidget {
-  const BusroApp({super.key});
+  const BusroApp({
+    super.key,
+    this.demoMode = false,
+    this.authClient,
+    this.state,
+  });
+  final bool demoMode;
+  final SupabaseClient? authClient;
+  final AppState? state;
   @override
   State<BusroApp> createState() => _BusroAppState();
 }
 
 class _BusroAppState extends State<BusroApp> {
-  final _state = AppState();
+  late final AppState _state;
+  final _navigator = GlobalKey<NavigatorState>();
+  bool _recoveryShown = false;
+  @override
+  void initState() {
+    super.initState();
+    _state =
+        widget.state ??
+        AppState(demoMode: widget.demoMode, auth: widget.authClient);
+    _state.addListener(_authChanged);
+    unawaited(_state.initialize());
+  }
+
+  void _authChanged() {
+    if (_state.passwordRecovery && !_recoveryShown) {
+      _recoveryShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _navigator.currentState?.push(
+          MaterialPageRoute<void>(builder: (_) => const ResetPasswordPage()),
+        );
+        _recoveryShown = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
-    _state.dispose();
+    _state.removeListener(_authChanged);
+    if (widget.state == null) _state.dispose();
     super.dispose();
   }
 
@@ -31,6 +70,7 @@ class _BusroAppState extends State<BusroApp> {
   Widget build(BuildContext context) => AppScope(
     state: _state,
     child: MaterialApp(
+      navigatorKey: _navigator,
       title: '버스로',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,

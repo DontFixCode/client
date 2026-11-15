@@ -1,0 +1,7 @@
+{
+  "API_BASE_URL": "http://localhost:8001",
+  "SUPABASE_URL": "http://localhost:8100",
+  "SUPABASE_ANON_KEY": "공개용 anon 또는 publishable 키를 입력하세요",
+  "AUTH_REDIRECT_URL": "busro://auth-callback",
+  "KAKAO_NATIVE_KEY": ""
+}

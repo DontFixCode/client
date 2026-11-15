@@ -15,7 +15,7 @@ void main() {
   );
 
   testWidgets('하차 안내와 환승 변경은 알림 설정과 무관하며 진행 상태를 유지한다', (tester) async {
-    final state = AppState()
+    final state = AppState(demoMode: true)
       ..startJourney(transfer)
       ..setAlertsEnabled(false)
       ..setBoardingInfo(
@@ -42,7 +42,7 @@ void main() {
     expect(find.text('1정류장 후 하차'), findsOneWidget);
 
     final alternative = state.fasterTransfer!;
-    expect(alternative.minutes, transfer.minutes - 5);
+    expect(alternative.minutes, transfer.minutes! - 5);
     expect(alternative.transferStop, transfer.transferStop);
     expect(alternative.busNumbers.first, transfer.busNumbers.first);
     expect(alternative.busNumbers.last, isNot(transfer.busNumbers.last));
@@ -79,7 +79,7 @@ void main() {
   });
 
   testWidgets('탑승 정보가 미확인이거나 노선·방향이 다르면 안내를 예측하지 않는다', (tester) async {
-    final state = AppState()
+    final state = AppState(demoMode: true)
       ..startJourney(transfer)
       ..setGuideStep(2);
     await mountGuide(tester, state);
@@ -122,7 +122,7 @@ void main() {
 
   testWidgets('직행 경로는 하차 정류장 수만 안내하고 환승 팝업을 띄우지 않는다', (tester) async {
     final route = routes.firstWhere((route) => route.transfers == 0);
-    final state = AppState()
+    final state = AppState(demoMode: true)
       ..startJourney(route)
       ..setBoardingInfo(
         bus: route.busNumbers.first,
@@ -145,7 +145,7 @@ void main() {
   });
 
   testWidgets('작은 화면과 확대 글자에서도 하차 배너와 환승 팝업을 사용할 수 있다', (tester) async {
-    final state = AppState()
+    final state = AppState(demoMode: true)
       ..startJourney(transfer)
       ..setBoardingInfo(
         bus: transfer.busNumbers.first,

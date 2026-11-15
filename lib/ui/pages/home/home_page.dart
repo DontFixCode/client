@@ -1,19 +1,44 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../config/app_routes.dart';
+import '../../../data/demo_data.dart';
 import '../../../models/place.dart';
+import '../../../models/stop_arrival.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/bus_logo.dart';
 import '../../widgets/demo_notice.dart';
+import '../../widgets/kakao_place_map.dart';
 import '../../widgets/route_map.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/status_pill.dart';
 import '../search/place_search_page.dart';
+import '../transit/transit_page.dart';
+import '../../widgets/api_action.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _locationScheduled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_locationScheduled) return;
+    _locationScheduled = true;
+    final state = AppScope.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(state.locateOrigin());
+    });
+  }
 
   void _findRoute(BuildContext context, Place place) {
     AppScope.of(context).setDestination(place);
@@ -37,6 +62,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    final arrivals = DemoData.stopArrivals;
     return SafeArea(
       bottom: false,
       child: CustomScrollView(
@@ -141,7 +167,11 @@ class HomePage extends StatelessWidget {
                             children: [
                               _PlaceField(
                                 label: '출발',
-                                value: state.origin.name,
+                                value:
+                                    state.locatingOrigin &&
+                                        state.origin.id == 'unset'
+                                    ? '현재 위치를 찾는 중…'
+                                    : state.origin.name,
                                 onTap: () => _pickPlace(context, true),
                               ),
                               const Divider(),
@@ -166,26 +196,28 @@ class HomePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.my_location_rounded,
-                        size: 13,
-                        color: AppColors.muted,
-                      ),
-                      SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          '현재 위치 기능은 대전역을 예시로 사용해요.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.muted,
+                  if (state.origin.id == 'unset' &&
+                      state.originLocationError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              state.originLocationError!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.muted,
+                              ),
+                            ),
                           ),
-                        ),
+                          TextButton(
+                            onPressed: () => state.locateOrigin(retry: true),
+                            child: const Text('다시 찾기'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
                   const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
@@ -287,82 +319,125 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: 25),
-                  SectionHeader(
-                    '정류장 미리보기',
-                    action: '개념도 보기',
-                    onAction: () => _showStop(context),
-                  ),
-                  const SizedBox(height: 10),
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 17, 18, 14),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(9),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryLight,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.directions_bus_outlined,
-                                  color: AppColors.primary,
-                                  size: 21,
-                                ),
-                              ),
-                              const SizedBox(width: 11),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${state.origin.name} 정류장',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const Text(
-                                      '예시 정류장 · 도보 3분',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const StatusPill('시연 데이터'),
-                            ],
-                          ),
+                  if (!state.demoMode) ...[
+                    AppCard(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const TransitPage(),
                         ),
-                        const Divider(),
-                        _ArrivalRow(
-                          number: '605',
-                          direction: '시청역 방면',
-                          time: '4분',
-                          color: AppColors.primary,
-                          onTap: () => _showStop(context),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 18),
-                          child: Divider(),
-                        ),
-                        _ArrivalRow(
-                          number: '102',
-                          direction: '정부청사역 방면',
-                          time: '2분',
-                          color: AppColors.blue,
-                          onTap: () => _showStop(context),
-                        ),
-                      ],
+                      ),
+                      child: const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.directions_bus_outlined),
+                        title: Text('정류소·노선 정보'),
+                        subtitle: Text('주변 정류소, 도착정보, 노선 경유 순서 조회'),
+                        trailing: Icon(Icons.chevron_right),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  const DemoNotice(),
+                    const SizedBox(height: 16),
+                    if (!state.authConfigured)
+                      const Text(
+                        '인증 서버 연결 설정이 필요해요. 실행 설정을 확인해 주세요.',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    if (!state.isLoggedIn)
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, AppRoutes.login),
+                        child: const Text('로그인하고 서버 기능 이용하기'),
+                      ),
+                    if (state.syncError != null) ...[
+                      Text(
+                        state.syncError!,
+                        style: const TextStyle(color: AppColors.error),
+                      ),
+                      TextButton(
+                        onPressed: state.busy
+                            ? null
+                            : () => apiAction(context, state.refreshAccount),
+                        child: const Text('회원정보·진행 중 이동 다시 불러오기'),
+                      ),
+                    ],
+                    const Text(
+                      '지도·시스템 알림·백그라운드 위치 안내는 준비 중이에요.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ] else ...[
+                    SectionHeader(
+                      '정류장 미리보기',
+                      action: '개념도 보기',
+                      onAction: () => _showStop(context),
+                    ),
+                    const SizedBox(height: 10),
+                    AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 17, 18, 14),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(9),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.directions_bus_outlined,
+                                    color: AppColors.primary,
+                                    size: 21,
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${state.origin.name} 정류장',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const Text(
+                                        '예시 정류장 · 도보 3분',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const StatusPill('시연 데이터'),
+                              ],
+                            ),
+                          ),
+                          const Divider(),
+                          for (var i = 0; i < arrivals.length; i++) ...[
+                            if (i > 0)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 18),
+                                child: Divider(),
+                              ),
+                            _ArrivalRow(
+                              arrival: arrivals[i],
+                              color: i.isEven
+                                  ? AppColors.primary
+                                  : AppColors.blue,
+                              onTap: () => _showStop(context),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const DemoNotice(),
+                  ],
                   const SizedBox(height: 28),
                 ],
               ),
@@ -388,12 +463,14 @@ class HomePage extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 14),
-            const Text(
-              '하차할 때, 환승 상황이 바뀔 때 안내 화면에서 확인할 수 있어요. 지금은 체험 버전으로 시스템 알림은 발송하지 않아요.',
+            Text(
+              AppScope.of(context).demoMode
+                  ? '하차할 때, 환승 상황이 바뀔 때 안내 화면에서 확인할 수 있어요. 지금은 체험 버전으로 시스템 알림은 발송하지 않아요.'
+                  : '진행 중 이동의 상태와 평가를 안내 화면에서 확인할 수 있어요. 하차 임박·환승 시스템 알림은 준비 중이에요.',
               style: TextStyle(color: AppColors.muted),
             ),
             const SizedBox(height: 20),
-            const DemoNotice(),
+            if (AppScope.of(context).demoMode) const DemoNotice(),
           ],
         ),
       ),
@@ -423,11 +500,19 @@ class HomePage extends StatelessWidget {
                 style: TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 18),
-              RouteMap(
-                height: 200,
-                originLabel: state.origin.name,
-                showRoute: false,
-              ),
+              if (KakaoPlaceMap.available &&
+                  state.origin.id == 'daejeon_station')
+                const KakaoPlaceMap(
+                  height: 200,
+                  latitude: 36.3324,
+                  longitude: 127.4342,
+                )
+              else
+                RouteMap(
+                  height: 200,
+                  originLabel: state.origin.name,
+                  showRoute: false,
+                ),
               const SizedBox(height: 18),
               const DemoNotice(message: '예시 정류장·도착 시간입니다. 실제 운행정보가 아닙니다.'),
               const SizedBox(height: 16),
@@ -492,13 +577,11 @@ class _PlaceField extends StatelessWidget {
 
 class _ArrivalRow extends StatelessWidget {
   const _ArrivalRow({
-    required this.number,
-    required this.direction,
-    required this.time,
+    required this.arrival,
     required this.color,
     required this.onTap,
   });
-  final String number, direction, time;
+  final StopArrival arrival;
   final Color color;
   final VoidCallback onTap;
   @override
@@ -513,7 +596,7 @@ class _ArrivalRow extends StatelessWidget {
           SizedBox(
             width: 46,
             child: Text(
-              number,
+              arrival.routeNo,
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: color,
@@ -523,12 +606,12 @@ class _ArrivalRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              direction,
+              arrival.stopsAwayText,
               style: const TextStyle(fontSize: 12, color: AppColors.muted),
             ),
           ),
           Text(
-            time,
+            arrival.minutesText,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,

@@ -4,6 +4,7 @@ import '../../../config/app_routes.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/api_action.dart';
 import '../../widgets/bus_logo.dart';
 import '../../widgets/demo_notice.dart';
 import '../../widgets/section_header.dart';
@@ -84,15 +85,19 @@ class ProfilePage extends StatelessWidget {
         ],
       ),
     );
-    if (name != null) state.updateProfile(name: name);
+    if (name != null && context.mounted) {
+      await apiAction(context, () => state.updateProfile(name: name));
+    }
   }
 
   void _about(BuildContext context) => showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const BusLogo(size: 32),
-      content: const Text(
-        '대전의 일상을 잇는, 여유로운 버스 길찾기\n\n버전 1.0.0 · 프론트엔드 체험판\n\n지도·경로·운행정보와 환승 확률은 예시입니다. 계정과 이동 기록은 앱 실행 중에만 유지되며 서버에 저장되지 않습니다.',
+      content: Text(
+        !AppScope.of(context).demoMode
+            ? '대전 버스 길찾기 · 서버 연동 버전\n\n자료가 부족한 시간·확률은 확인 불가로 표시합니다. 지도 SDK, 백그라운드 위치·알림, 대체 경로 추천과 일부 계정·기록 기능은 준비 중입니다.'
+            : '대전의 일상을 잇는, 여유로운 버스 길찾기\n\n버전 1.0.0 · 프론트엔드 체험판\n\n지도·경로·운행정보와 환승 확률은 예시입니다. 계정과 이동 기록은 앱 실행 중에만 유지되며 서버에 저장되지 않습니다.',
       ),
       actions: [
         TextButton(
@@ -157,7 +162,9 @@ class ProfilePage extends StatelessWidget {
                       ),
                       IconButton(
                         tooltip: '이름 변경',
-                        onPressed: () => _editName(context, state),
+                        onPressed: state.busy
+                            ? null
+                            : () => _editName(context, state),
                         icon: const Icon(
                           Icons.edit_outlined,
                           size: 20,
@@ -313,12 +320,12 @@ class ProfilePage extends StatelessWidget {
                     '이동 안내 알림',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text(
-                    '하차·환승 알림 화면 설정 체험',
+                  subtitle: Text(
+                    state.demoMode ? '하차·환승 알림 화면 설정 체험' : '시스템 알림 준비 중',
                     style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
-                  value: state.alertsEnabled,
-                  onChanged: state.setAlertsEnabled,
+                  value: state.demoMode && state.alertsEnabled,
+                  onChanged: state.demoMode ? state.setAlertsEnabled : null,
                 ),
                 const Divider(indent: 56, endIndent: 16),
                 ListTile(
@@ -360,10 +367,20 @@ class ProfilePage extends StatelessWidget {
                       if (await _confirm(
                         context,
                         title: '로그아웃할까요?',
-                        message: '이 기기의 체험 로그인을 종료합니다.',
+                        message: state.demoMode
+                            ? '이 기기의 체험 로그인을 종료합니다.'
+                            : '이 기기에서 로그아웃해요. 서버의 진행 중 이동과 기록은 유지됩니다.',
                         action: '로그아웃',
                       )) {
-                        state.signOut();
+                        if (context.mounted &&
+                            await apiAction(context, state.signOut) &&
+                            context.mounted) {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            AppRoutes.welcome,
+                            (_) => false,
+                          );
+                        }
                       }
                     },
                   ),
@@ -377,24 +394,32 @@ class ProfilePage extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton(
                 style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-                onPressed: () async {
-                  if (await _confirm(
-                    context,
-                    title: '체험 정보를 삭제할까요?',
-                    message:
-                        '회원 탈퇴를 체험합니다. 현재 이름, 이메일, 저장한 장소와 이동 기록이 모두 삭제됩니다.',
-                    action: '정보 삭제',
-                    destructive: true,
-                  )) {
-                    state.deleteAccount();
-                  }
-                },
-                child: const Text('회원 탈퇴', style: TextStyle(fontSize: 12)),
+                onPressed: !state.demoMode
+                    ? null
+                    : () async {
+                        if (await _confirm(
+                          context,
+                          title: '체험 정보를 삭제할까요?',
+                          message: '회원 탈퇴를 체험합니다. 현재 이름, 이메일, 저장한 장소와 이동 기록이 모두 삭제됩니다.',
+                          action: '정보 삭제',
+                          destructive: true,
+                        )) {
+                          state.deleteAccount();
+                        }
+                      },
+                child: Text(
+                  state.demoMode ? '회원 탈퇴' : '회원 탈퇴 · 준비 중',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ],
           const SizedBox(height: 28),
-          const DemoNotice(message: '체험 정보는 앱을 다시 시작하면 초기화돼요'),
+          DemoNotice(
+            message: state.demoMode
+                ? '체험 정보는 앱을 다시 시작하면 초기화돼요'
+                : '회원정보·이동 기록은 서버에 저장돼요. 저장한 장소는 앱 실행 중에만 유지돼요.',
+          ),
           const SizedBox(height: 8),
           const Text(
             'BUSRO · A LITTLE MORE ROOM TO GO',
