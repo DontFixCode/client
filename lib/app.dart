@@ -35,7 +35,9 @@ class BusroApp extends StatefulWidget {
 class _BusroAppState extends State<BusroApp> {
   late final AppState _state;
   final _navigator = GlobalKey<NavigatorState>();
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _recoveryShown = false;
+  bool _deletionShown = false;
   @override
   void initState() {
     super.initState();
@@ -47,6 +49,22 @@ class _BusroAppState extends State<BusroApp> {
   }
 
   void _authChanged() {
+    if (!_state.accountDeleted) _deletionShown = false;
+    if (_state.accountDeleted && !_deletionShown) {
+      _deletionShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_state.accountDeleted) return;
+        _navigator.currentState?.pushNamedAndRemoveUntil(
+          AppRoutes.welcome,
+          (_) => false,
+        );
+        _messenger.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('탈퇴 처리된 계정이에요. 이 계정으로는 서비스를 이용할 수 없어요.'),
+          ),
+        );
+      });
+    }
     if (_state.passwordRecovery && !_recoveryShown) {
       _recoveryShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -71,8 +89,12 @@ class _BusroAppState extends State<BusroApp> {
     state: _state,
     child: MaterialApp(
       navigatorKey: _navigator,
+      scaffoldMessengerKey: _messenger,
       title: '버스로',
       debugShowCheckedModeBanner: false,
+      initialRoute: _state.hasServerSession
+          ? AppRoutes.main
+          : AppRoutes.welcome,
       theme: AppTheme.light,
       builder: (context, child) => ColoredBox(
         color: AppColors.border,

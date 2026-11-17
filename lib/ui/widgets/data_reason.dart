@@ -1,5 +1,8 @@
 import '../../data/bus_api.dart';
 
+String secondsLabel(dynamic value) =>
+    value is num && value.isFinite ? '${value.round()}초' : '확인 불가';
+
 String etaSourceLabel(Json eta) => switch (eta['etaSource']) {
   'headway_estimate' => '배차간격 기반 추정 · 실제 차량·시각 미확정',
   'leading_vehicle_gap' => '앞차 간격 기반 추정 · 검증 전',

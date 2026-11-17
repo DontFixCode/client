@@ -11,6 +11,7 @@ import '../../widgets/data_reason.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/route_geometry.dart';
 import '../../widgets/route_timeline.dart';
+import '../../widgets/transfer_results.dart';
 
 class LiveJourneyGuide extends StatelessWidget {
   const LiveJourneyGuide({super.key});
@@ -55,7 +56,7 @@ class LiveJourneyGuide extends StatelessWidget {
         title: Text(completed ? '목적지에 도착했나요?' : '이동 안내를 종료할까요?'),
         content: Text(
           completed
-              ? '도착 확인을 서버에 저장해요. 환승 성공·실패 결과 제출은 아직 준비 중이에요.'
+              ? '도착 확인을 서버에 저장해요. 환승 결과는 이용기록에서도 입력·수정할 수 있어요.'
               : '취소 상태를 서버에 저장해요. 잠시 화면을 나가도 이동은 유지됩니다.',
         ),
         actions: [
@@ -227,11 +228,7 @@ class LiveJourneyGuide extends StatelessWidget {
                       ),
                 ],
                 if (leg != null && !onboard)
-                  Text(
-                    next?['slackSeconds'] == null
-                        ? '승차 여유: 확인 불가'
-                        : '승차 여유: ${next!['slackSeconds']}초',
-                  ),
+                  Text('승차 여유: ${secondsLabel(next?['slackSeconds'])}'),
                 if (!mismatched)
                   if (arrival?['transferProbabilities']
                       case final List probabilities)
@@ -285,12 +282,21 @@ class LiveJourneyGuide extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 24),
-          RouteGeometry(legs: route.legs),
+          RouteGeometry(
+            legs: route.legs,
+            origin: route.origin,
+            destination: route.destination,
+          ),
           const SizedBox(height: 24),
           ExpansionTile(
             title: const Text('선택 당시 경로·환승 평가'),
             children: [RouteTimeline(route: route)],
           ),
+          if ((state.journey!['transferResults'] as List? ?? [])
+              .isNotEmpty) ...[
+            const SizedBox(height: 24),
+            TransferResults(journey: state.journey!),
+          ],
           const SizedBox(height: 12),
           const Text(
             '버스를 놓쳤거나 목적지가 바뀌었을 때의 대체 경로 추천은 준비 중이에요.',

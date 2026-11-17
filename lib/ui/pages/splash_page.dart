@@ -52,76 +52,67 @@ class SplashPage extends StatelessWidget {
                         style: TextStyle(color: AppColors.muted, height: 1.8),
                       ),
                       const SizedBox(height: 30),
-                      Stack(
-                        clipBehavior: Clip.none,
+                      Column(
                         children: [
-                          const RouteMap(
-                            height: 240,
-                            originLabel: '대전역',
-                            destinationLabel: '한밭수목원',
-                          ),
-                          Positioned(
-                            bottom: 18,
-                            left: 18,
-                            right: 18,
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryDark,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primaryDark.withValues(
-                                      alpha: .12,
-                                    ),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 6),
+                          const RouteMap(height: 240),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryDark,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryDark.withValues(
+                                    alpha: .12,
                                   ),
-                                ],
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle_rounded,
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.lime,
+                                  size: 27,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '서두르지 않아도 괜찮아요',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      SizedBox(height: 3),
+                                      Text(
+                                        '환승 여유까지 생각한 길찾기',
+                                        style: TextStyle(
+                                          color: AppColors.lime,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '8분\n여유',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
                                     color: AppColors.lime,
-                                    size: 27,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '서두르지 않아도 괜찮아요',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        SizedBox(height: 3),
-                                        Text(
-                                          '환승 여유까지 생각한 길찾기',
-                                          style: TextStyle(
-                                            color: AppColors.lime,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    '8분\n여유',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: AppColors.lime,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

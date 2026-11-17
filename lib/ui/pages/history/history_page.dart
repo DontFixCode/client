@@ -7,6 +7,7 @@ import '../../../models/place.dart';
 import '../../../models/travel_route.dart';
 import '../../widgets/api_action.dart';
 import '../../widgets/route_timeline.dart';
+import '../../widgets/transfer_results.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -370,7 +371,7 @@ class HistoryPage extends StatelessWidget {
           ),
         const SizedBox(height: 20),
         const Text(
-          '기록 삭제·환승 성공/실패 결과 입력은 아직 서버에서 지원하지 않아요.',
+          '기록 상세에서 환승 결과를 입력·수정하고 종료된 이동 기록을 삭제할 수 있어요.',
           style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
       ],
@@ -401,6 +402,33 @@ class _ServerHistoryDetail extends StatefulWidget {
 
 class _ServerHistoryDetailState extends State<_ServerHistoryDetail> {
   Future<Json>? _data;
+
+  Future<void> _deleteRecord() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('이 이동 기록을 삭제할까요?'),
+        content: const Text('이동과 연결된 환승 결과·예측 기록이 삭제되며 되돌릴 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('기록 삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final state = AppScope.of(context);
+    if (await apiAction(context, () => state.deleteJourneyRecord(widget.id)) &&
+        mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -422,11 +450,10 @@ class _ServerHistoryDetailState extends State<_ServerHistoryDetail> {
                 children: [
                   Text(snapshot.error.toString()),
                   TextButton(
-                    onPressed: () => setState(
-                      () =>
-                          _data = AppScope.of(context).api
-                              .request('GET', '/journeys/${widget.id}'),
-                    ),
+                    onPressed: () => setState(() {
+                      _data = AppScope.of(context).api
+                          .request('GET', '/journeys/${widget.id}');
+                    }),
                     child: const Text('다시 불러오기'),
                   ),
                 ],
@@ -460,6 +487,13 @@ class _ServerHistoryDetailState extends State<_ServerHistoryDetail> {
             Text('선택 당시 예상: ${route.minutesLabel} · 환승 ${route.transfers}회'),
             const SizedBox(height: 24),
             RouteTimeline(route: route),
+            const SizedBox(height: 24),
+            TransferResults(
+              journey: data,
+              onUpdated: (updated) => setState(() {
+                _data = Future.value(updated);
+              }),
+            ),
             if (data['lifecycleStatus'] == 'active')
               FilledButton(
                 onPressed: state.busy
@@ -476,7 +510,16 @@ class _ServerHistoryDetailState extends State<_ServerHistoryDetail> {
                 child: const Text('진행 중 안내 이어보기'),
               ),
             const SizedBox(height: 20),
-            const Text('환승 결과는 아직 입력되지 않았어요. 결과 제출·기록 삭제는 준비 중이에요.'),
+            if (data['lifecycleStatus'] == 'active')
+              const Text('진행 중인 이동은 완료하거나 취소한 뒤 기록을 삭제할 수 있어요.')
+            else
+              OutlinedButton.icon(
+                onPressed: state.busy || state.hasPendingEvent
+                    ? null
+                    : _deleteRecord,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('이 이동 기록 삭제'),
+              ),
           ],
         );
       },

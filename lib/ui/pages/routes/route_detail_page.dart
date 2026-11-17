@@ -72,7 +72,11 @@ class RouteDetailPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 StatusPill(
                   route.recommended && !route.isLive
@@ -84,7 +88,6 @@ class RouteDetailPage extends StatelessWidget {
                       : '환승 ${route.transfers}회',
                   icon: Icons.route_rounded,
                 ),
-                const Spacer(),
                 Text(
                   route.estimated
                       ? '배차간격 기반 예상'
@@ -123,14 +126,18 @@ class RouteDetailPage extends StatelessWidget {
             RouteSegmentBar(route: route),
             const SizedBox(height: 22),
             if (route.isLive)
-              RouteGeometry(legs: route.legs)
+              RouteGeometry(
+                legs: route.legs,
+                origin: route.origin,
+                destination: route.destination,
+              )
             else
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: RouteMap(
                   height: 230,
-                  originLabel: route.origin.name,
-                  destinationLabel: route.destination.name,
+                  origin: route.origin,
+                  destination: route.destination,
                 ),
               ),
             const SizedBox(height: 20),
@@ -212,7 +219,7 @@ class RouteDetailPage extends StatelessWidget {
             DemoNotice(
               message: route.isLive
                   ? '시간·확률은 검색 시점 평가이며 이후 달라질 수 있어요.'
-                  : '노선·지도·예측은 UI 체험을 위한 예시예요',
+                  : '노선·예측은 UI 체험을 위한 예시예요',
             ),
           ],
         ),

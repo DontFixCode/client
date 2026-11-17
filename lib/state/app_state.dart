@@ -22,6 +22,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         api ??
         BusApi(
           accessToken: () async {
+            if (accountDeleted) return null;
             final session = auth?.auth.currentSession;
             if (session != null && session.isExpired) {
               await auth!.auth.refreshSession();
@@ -29,6 +30,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             return auth?.auth.currentSession?.accessToken;
           },
         );
+    this.api.onAccountDeleted = _accountDeleted;
     if (!demoMode) {
       origin = const Place(id: 'unset', name: '출발지를 선택해 주세요', address: '');
     }
@@ -46,6 +48,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _observingLifecycle = false;
   bool busy = false;
   bool passwordRecovery = false;
+  bool accountDeleted = false;
   bool streamConnected = false;
   String? syncError, streamError, locationError;
   bool locatingOrigin = false;
@@ -58,13 +61,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool searchLoading = false;
   String? searchError;
   int _searchGeneration = 0;
-  bool _refreshing = false;
+  int? _refreshingSession;
+  String? _sessionUserId;
   int _sessionGeneration = 0;
+  int _journeyGeneration = 0;
   Json? _pendingEvent;
   String? _pendingEventKey;
+  String? _pendingEventJourneyId;
   bool get hasPendingEvent => _pendingEvent != null;
+  String? get pendingEventJourneyId => _pendingEventJourneyId;
   bool get authConfigured => auth != null;
-  bool get hasServerSession => auth?.auth.currentSession != null;
+  bool get hasServerSession =>
+      !accountDeleted && auth?.auth.currentSession != null;
   String? get journeyId => journey?['journeyId'] as String?;
   Json get progress => journey?['currentProgress'] as Json? ?? {};
   Json? get guidance {
@@ -132,6 +140,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     await auth!.auth.signInWithPassword(email: email, password: password);
+    accountDeleted = false;
     await refreshAccount();
   }
 
@@ -152,6 +161,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           : BackendConfig.authRedirect,
     );
     if (result.session == null) return false;
+    accountDeleted = false;
     await api.request('PATCH', '/me', body: {'displayName': name});
     await refreshAccount();
     return true;
@@ -181,39 +191,52 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshAccount() async {
-    if (_refreshing || demoMode || !hasServerSession) return;
-    _refreshing = true;
+    if (demoMode || !hasServerSession) return;
     final userId = auth!.auth.currentUser!.id;
-    email = auth!.auth.currentUser?.email;
-    userName =
-        auth!.auth.currentUser?.userMetadata?['display_name'] as String? ??
-        email?.split('@').first ??
-        '여행자';
+    if (_sessionUserId != null && _sessionUserId != userId) _clearSession();
+    _sessionUserId = userId;
+    final generation = _sessionGeneration;
+    if (_refreshingSession == generation) return;
+    _refreshingSession = generation;
     syncError = null;
     _notify();
     try {
       final profile = await api.request('GET', '/me');
-      if (auth!.auth.currentUser?.id != userId || _disposed) return;
-      userName = profile['displayName'] as String? ?? userName;
+      if (auth!.auth.currentUser?.id != userId ||
+          _disposed ||
+          generation != _sessionGeneration) {
+        return;
+      }
+      email = auth!.auth.currentUser?.email;
+      userName =
+          profile['displayName'] as String? ??
+          auth!.auth.currentUser?.userMetadata?['display_name'] as String? ??
+          email?.split('@').first ??
+          '여행자';
       try {
         await loadHistory();
       } catch (error) {
         syncError = error.toString();
       }
+      if (generation != _sessionGeneration) return;
       final active = await api.request(
         'GET',
         '/journeys',
         query: {'status': 'active'},
       );
-      if (auth!.auth.currentUser?.id != userId || _disposed) return;
+      if (auth!.auth.currentUser?.id != userId ||
+          _disposed ||
+          generation != _sessionGeneration) {
+        return;
+      }
       final items = active['items'] as List;
       if (items.isNotEmpty) {
         await restoreJourney(items.first['journeyId'] as String);
       }
     } catch (error) {
-      syncError = error.toString();
+      if (generation == _sessionGeneration) syncError = error.toString();
     } finally {
-      _refreshing = false;
+      if (_refreshingSession == generation) _refreshingSession = null;
       _notify();
     }
   }
@@ -332,13 +355,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> restoreJourney(String id) async {
     final generation = _sessionGeneration;
+    final journeyGeneration = _journeyGeneration;
     final data = await api.request('GET', '/journeys/$id');
-    if (_disposed || generation != _sessionGeneration) return;
+    if (_disposed ||
+        generation != _sessionGeneration ||
+        journeyGeneration != _journeyGeneration) {
+      return;
+    }
     _applyJourney(data);
     if (journeyId == id) await connectStream();
   }
 
-  void _applyJourney(Json data) {
+  void _applyJourney(Json data, {bool refreshTransferResults = false}) {
     if (_disposed) return;
     final current = journey;
     if (current != null && current['journeyId'] == data['journeyId']) {
@@ -348,15 +376,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           (sv == oldSv &&
               (data['resultVersion'] as int) <
                   (current['resultVersion'] as int))) {
+        // 결과 저장은 버전을 올리지 않습니다. 더 최신 안내를 유지하면서 결과만 반영합니다.
+        if (refreshTransferResults &&
+            data['selectionVersion'] == current['selectionVersion'] &&
+            data['transferResults'] is List) {
+          journey = {...current, 'transferResults': data['transferResults']};
+          _notify();
+        }
         return;
       }
     }
-    journey = {...?current, ...data};
+    if (current?['journeyId'] != data['journeyId'] ||
+        data['lifecycleStatus'] != 'active') {
+      _journeyGeneration++;
+    }
+    journey = {
+      ...?(current?['journeyId'] == data['journeyId'] ? current : null),
+      ...data,
+    };
     if (journey!['lifecycleStatus'] != 'active') {
       journey = null;
       activeRoute = null;
-      _pendingEvent = null;
-      _pendingEventKey = null;
       _stopStream();
       _stopLocation();
       unawaited(
@@ -420,10 +460,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void _streamLost(WebSocketChannel socket) {
     if (_socket != socket || _disposed || journeyId == null) return;
     streamConnected = false;
-    if (socket.closeCode == 4403 || socket.closeCode == 4404) {
-      streamError = socket.closeCode == 4403
-          ? '이 계정은 이용할 수 없어요. 다시 로그인해 주세요.'
-          : '이동을 찾을 수 없어요. 서버 상태를 다시 확인해 주세요.';
+    if (socket.closeCode == 4403) {
+      _accountDeleted();
+      return;
+    }
+    if (socket.closeCode == 4404) {
+      streamError = '이동을 찾을 수 없어요. 서버 상태를 다시 확인해 주세요.';
       _reconnectTimer?.cancel();
       _notify();
       return;
@@ -459,17 +501,68 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> sendJourneyEvent(String type, Json payload) async {
     if (journeyId == null) return;
-    if (_pendingEvent != null && _pendingEvent!['eventType'] != type) {
+    await _sendEvent(
+      journeyId!,
+      journey!['stateVersion'] as int,
+      type,
+      payload,
+    );
+  }
+
+  Future<Json> submitTransferResult(
+    Json journeyData,
+    Json transfer, {
+    required String result,
+    bool? usedPlanned,
+  }) async {
+    final previous = transfer['result'] as Json?;
+    return _sendEvent(
+      journeyData['journeyId'] as String,
+      journeyData['stateVersion'] as int,
+      previous == null ? 'transfer_result' : 'correction',
+      {
+        if (previous == null) ...{
+          'snapshotKey': transfer['snapshotKey'],
+          'selectionVersion': transfer['selectionVersion'],
+          'transferIndex': transfer['transferIndex'],
+        } else
+          'supersedesEventId': previous['eventId'],
+        'result': result,
+        if (usedPlanned != null)
+          'actualConnection': {'usedPlanned': usedPlanned},
+      },
+    );
+  }
+
+  Future<Json> _sendEvent(
+    String id,
+    int version,
+    String type,
+    Json payload,
+  ) async {
+    if (_pendingEvent != null) {
       throw const ApiException('EVENT_PENDING', '이전 이동 확인을 먼저 재전송해 주세요.');
     }
-    _pendingEvent ??= {
+    _pendingEvent = {
       'eventType': type,
-      'stateVersion': journey!['stateVersion'],
+      'stateVersion': version,
       'occurredAt': DateTime.now().toUtc().toIso8601String(),
       'payload': payload,
     };
-    _pendingEventKey ??= BusApi.eventKey();
-    final id = journeyId!;
+    _pendingEventKey = BusApi.eventKey();
+    _pendingEventJourneyId = id;
+    return _submitPendingEvent();
+  }
+
+  void _clearPendingEvent() {
+    _pendingEvent = null;
+    _pendingEventKey = null;
+    _pendingEventJourneyId = null;
+  }
+
+  Future<Json> _submitPendingEvent() async {
+    final id = _pendingEventJourneyId!;
+    final generation = _sessionGeneration;
     try {
       await api.request(
         'POST',
@@ -479,14 +572,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
       // 동일 키 재전송은 응답 유실에도 이벤트를 중복 저장하지 않습니다.
       final data = await api.request('GET', '/journeys/$id');
-      _pendingEvent = null;
-      _pendingEventKey = null;
-      if (journeyId == id) _applyJourney(data);
+      if (_disposed || generation != _sessionGeneration) {
+        throw const ApiException('SESSION_CHANGED', '로그인 상태가 변경되었어요.');
+      }
+      _clearPendingEvent();
+      if (journeyId == id) _applyJourney(data, refreshTransferResults: true);
+      _notify();
+      return data;
     } on ApiException catch (error) {
-      if (error.status >= 400 && error.status < 500) {
-        _pendingEvent = null;
-        _pendingEventKey = null;
-        if (error.status == 409) {
+      if (generation == _sessionGeneration &&
+          error.status >= 400 &&
+          error.status < 500) {
+        _clearPendingEvent();
+        if (error.status == 409 && journeyId == id) {
           try {
             await restoreJourney(id);
           } catch (_) {
@@ -495,16 +593,41 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
       rethrow;
+    } finally {
+      _notify();
     }
   }
 
-  Future<void> retryPendingEvent() async {
-    if (_pendingEvent != null) {
-      await sendJourneyEvent(
-        _pendingEvent!['eventType'] as String,
-        _pendingEvent!['payload'] as Json,
-      );
+  Future<Json?> retryPendingEvent() async {
+    if (_pendingEvent == null) return null;
+    return _submitPendingEvent();
+  }
+
+  Future<void> deleteJourneyRecord(String id) async {
+    if (_pendingEventJourneyId == id) {
+      throw const ApiException('EVENT_PENDING', '전송 중인 환승 결과를 먼저 확인해 주세요.');
     }
+    final generation = _sessionGeneration;
+    try {
+      await api.request('DELETE', '/journeys/$id');
+    } on ApiException catch (error) {
+      // 삭제 응답을 놓친 뒤 다시 요청하면 이미 삭제된 기록은 404입니다.
+      if (error.status != 404 || error.code != 'NOT_FOUND') rethrow;
+    }
+    if (_disposed || generation != _sessionGeneration) return;
+    serverHistory.removeWhere((item) => item['journeyId'] == id);
+    if (journeyId == id) {
+      _journeyGeneration++;
+      journey = null;
+      activeRoute = null;
+      _stopStream();
+      _stopLocation();
+    }
+    // 기록 삭제와 함께 원본 검색이 정리될 수 있어 캐시도 비웁니다.
+    stopSearchPolling();
+    searchResult = null;
+    searchError = null;
+    _notify();
   }
 
   @override
@@ -635,6 +758,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void _clearSession() {
     _sessionGeneration++;
+    _journeyGeneration++;
+    _sessionUserId = null;
     _stopStream();
     _stopLocation();
     stopSearchPolling();
@@ -645,9 +770,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     serverHistory = [];
     historyCursor = null;
     searchResult = null;
-    _pendingEvent = null;
-    _pendingEventKey = null;
+    _clearPendingEvent();
     syncError = null;
+    streamError = null;
+    locationError = null;
+    searchError = null;
+    passwordRecovery = false;
+    if (!demoMode) {
+      origin = const Place(id: 'unset', name: '출발지를 선택해 주세요', address: '');
+      destination = null;
+      originLocationError = null;
+      _originLocationAttempted = false;
+    }
     _favorites.clear();
     _favoriteIds.clear();
     _notify();
@@ -786,9 +920,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _notify();
   }
 
-  void deleteAccount() {
+  void _accountDeleted() {
+    if (_disposed || accountDeleted) return;
+    accountDeleted = true;
+    _clearSession();
+    // SDK는 로컬 세션부터 지웁니다. Auth 차단/네트워크 실패로 탈퇴 완료를 되돌리지 않습니다.
+    final signOut = auth?.auth.signOut(scope: SignOutScope.local);
+    if (signOut != null) unawaited(signOut.catchError((Object _) {}));
+  }
+
+  Future<void> deleteAccount() async {
     if (!demoMode) {
-      throw const ApiException('NOT_IMPLEMENTED', '회원 탈퇴 API는 아직 준비 중이에요.');
+      final generation = _sessionGeneration;
+      await api.request('DELETE', '/me');
+      if (_disposed || generation != _sessionGeneration) return;
+      // 202의 authBlockStatus=pending도 탈퇴 접수 완료입니다.
+      _accountDeleted();
+      return;
     }
     userName = null;
     email = null;

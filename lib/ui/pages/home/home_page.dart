@@ -11,7 +11,6 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/bus_logo.dart';
 import '../../widgets/demo_notice.dart';
-import '../../widgets/kakao_place_map.dart';
 import '../../widgets/route_map.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/status_pill.dart';
@@ -360,13 +359,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                     const Text(
-                      '지도·시스템 알림·백그라운드 위치 안내는 준비 중이에요.',
+                      '시스템 알림·백그라운드 위치 안내는 준비 중이에요.',
                       style: TextStyle(color: AppColors.muted, fontSize: 12),
                     ),
                   ] else ...[
                     SectionHeader(
                       '정류장 미리보기',
-                      action: '개념도 보기',
+                      action: '지도 보기',
                       onAction: () => _showStop(context),
                     ),
                     const SizedBox(height: 10),
@@ -484,7 +483,7 @@ class _HomePageState extends State<HomePage> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -500,19 +499,7 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 18),
-              if (KakaoPlaceMap.available &&
-                  state.origin.id == 'daejeon_station')
-                const KakaoPlaceMap(
-                  height: 200,
-                  latitude: 36.3324,
-                  longitude: 127.4342,
-                )
-              else
-                RouteMap(
-                  height: 200,
-                  originLabel: state.origin.name,
-                  showRoute: false,
-                ),
+              RouteMap(height: 200, origin: state.origin),
               const SizedBox(height: 18),
               const DemoNotice(message: '예시 정류장·도착 시간입니다. 실제 운행정보가 아닙니다.'),
               const SizedBox(height: 16),

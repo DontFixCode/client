@@ -70,9 +70,10 @@ void main() {
           'remainingSeconds': 600,
           'plannedArrivalAt': '2026-11-13T06:20:00Z',
         },
-        'nextBoarding': {
+        'nextBoarding': <String, dynamic>{
           'predictedArrivalAt': '2026-11-13T06:10:00Z',
           'waitSeconds': 120,
+          'slackSeconds': -198.784654,
           'vehicle': {'vehicleId': '대전75자1234'},
           'upcoming': [
             {
@@ -99,6 +100,11 @@ void main() {
     expect(find.textContaining('승차 정류소 도착 예상:'), findsOneWidget);
     expect(find.textContaining('제공처 예상 · 수집 시각 기준 근사'), findsOneWidget);
     expect(find.textContaining('배차간격 기반 추정 · 실제 차량·시각 미확정'), findsOneWidget);
+    expect(find.text('승차 여유: -199초'), findsOneWidget);
+    state.journey!['guidance']['nextBoarding']['slackSeconds'] = null;
+    state.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('승차 여유: 확인 불가'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

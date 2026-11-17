@@ -324,7 +324,9 @@ class _TransitDetailState extends State<_TransitDetail> {
       actions: [
         IconButton(
           tooltip: '최신 자료 조회',
-          onPressed: () => setState(() => _data = widget.load()),
+          onPressed: () => setState(() {
+            _data = widget.load();
+          }),
           icon: const Icon(Icons.refresh),
         ),
       ],

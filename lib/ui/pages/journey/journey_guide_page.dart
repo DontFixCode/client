@@ -583,9 +583,8 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                     borderRadius: BorderRadius.circular(24),
                     child: RouteMap(
                       height: 220,
-                      originLabel: route.origin.name,
-                      destinationLabel: route.destination.name,
-                      activeStep: step,
+                      origin: route.origin,
+                      destination: route.destination,
                     ),
                   ),
                   const SizedBox(height: 20),

@@ -108,7 +108,7 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                   const SizedBox(height: 8),
                   Text(
                     routes.isEmpty
-                        ? '출발지와 도착지를 다시 확인해 주세요.'
+                        ? '검색 결과와 안내를 확인해 주세요.'
                         : '나에게 맞는 이동을 선택해 보세요.',
                     style: const TextStyle(
                       color: AppColors.muted,

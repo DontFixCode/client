@@ -25,6 +25,7 @@ class BusApi {
   final http.Client _client;
   final String baseUrl;
   final Future<String?> Function() accessToken;
+  void Function()? onAccountDeleted;
 
   Uri uri(String path, [Map<String, String>? query]) =>
       Uri.parse('${baseUrl.replaceFirst(RegExp(r'/+$'), '')}/api/v1$path')
@@ -57,6 +58,12 @@ class BusApi {
           : jsonDecode(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final error = data is Map ? data['error'] : null;
+        if (response.statusCode == 403 &&
+            error is Map &&
+            error['code'] == 'ACCOUNT_DELETED' &&
+            token == await accessToken()) {
+          onAccountDeleted?.call();
+        }
         throw ApiException(
           error is Map
               ? error['code']?.toString() ?? 'HTTP_ERROR'

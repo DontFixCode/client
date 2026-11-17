@@ -96,8 +96,8 @@ class ProfilePage extends StatelessWidget {
       title: const BusLogo(size: 32),
       content: Text(
         !AppScope.of(context).demoMode
-            ? '대전 버스 길찾기 · 서버 연동 버전\n\n자료가 부족한 시간·확률은 확인 불가로 표시합니다. 지도 SDK, 백그라운드 위치·알림, 대체 경로 추천과 일부 계정·기록 기능은 준비 중입니다.'
-            : '대전의 일상을 잇는, 여유로운 버스 길찾기\n\n버전 1.0.0 · 프론트엔드 체험판\n\n지도·경로·운행정보와 환승 확률은 예시입니다. 계정과 이동 기록은 앱 실행 중에만 유지되며 서버에 저장되지 않습니다.',
+            ? '대전 버스 길찾기 · 서버 연동 버전\n\n자료가 부족한 시간·확률은 확인 불가로 표시합니다. 카카오 지도에서 경로를 확인할 수 있습니다. 백그라운드 위치·알림, 대체 경로 추천은 준비 중입니다.'
+            : '대전의 일상을 잇는, 여유로운 버스 길찾기\n\n버전 1.0.0 · 프론트엔드 체험판\n\n배경은 카카오 지도이며, 경로·운행정보와 환승 확률은 예시입니다. 계정과 이동 기록은 앱 실행 중에만 유지되며 서버에 저장되지 않습니다.',
       ),
       actions: [
         TextButton(
@@ -394,23 +394,24 @@ class ProfilePage extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton(
                 style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-                onPressed: !state.demoMode
+                onPressed: state.busy
                     ? null
                     : () async {
                         if (await _confirm(
                           context,
-                          title: '체험 정보를 삭제할까요?',
-                          message: '회원 탈퇴를 체험합니다. 현재 이름, 이메일, 저장한 장소와 이동 기록이 모두 삭제됩니다.',
-                          action: '정보 삭제',
+                          title: state.demoMode ? '체험 정보를 삭제할까요?' : '회원 탈퇴할까요?',
+                          message: state.demoMode
+                              ? '회원 탈퇴를 체험합니다. 현재 이름, 이메일, 저장한 장소와 이동 기록이 모두 삭제됩니다.'
+                              : '탈퇴하면 진행 중인 이동이 취소되고 이 계정으로 서비스를 이용할 수 없어요. 되돌릴 수 없으며 계정과 이동 기록은 서버에 보관됩니다.',
+                          action: state.demoMode ? '정보 삭제' : '탈퇴하기',
                           destructive: true,
                         )) {
-                          state.deleteAccount();
+                          if (context.mounted) {
+                            await apiAction(context, state.deleteAccount);
+                          }
                         }
                       },
-                child: Text(
-                  state.demoMode ? '회원 탈퇴' : '회원 탈퇴 · 준비 중',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                child: const Text('회원 탈퇴', style: TextStyle(fontSize: 12)),
               ),
             ),
           ],

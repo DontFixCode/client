@@ -158,7 +158,7 @@ class RouteTimeline extends StatelessWidget {
             Text(
               slack == null
                   ? '환승 여유 확인 불가'
-                  : '환승 여유 ${(slack as num) < 60 ? '$slack초' : '${minutesFromSeconds(slack)}분'}',
+                  : '환승 여유 ${(slack as num) < 60 ? secondsLabel(slack) : '${minutesFromSeconds(slack)}분'}',
             ),
           ],
         ),

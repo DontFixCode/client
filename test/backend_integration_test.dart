@@ -364,7 +364,16 @@ void main() {
     expect(find.text('배차간격 기반 예상'), findsOneWidget);
     expect(find.text('서버 추천 경로'), findsOneWidget);
     expect(find.text('여유 있는 환승'), findsNothing);
-    await tester.scrollUntilVisible(find.byType(RouteTimeline), 200);
+    await tester.scrollUntilVisible(
+      find.byType(RouteTimeline),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.textContaining('배차간격 기반 추정 · 실제 차량·시각 미확정'), findsOneWidget);
     expect(find.textContaining('앞차 간격 기반 추정 · 검증 전'), findsOneWidget);
     expect(find.textContaining('예측 기준: 확인 불가'), findsOneWidget);
@@ -655,7 +664,16 @@ void main() {
     await _show(tester, state, RouteDetailPage(route: route));
     expect(find.text('시간 확인 불가'), findsOneWidget);
     expect(find.text('경로 체험'), findsNothing);
-    await tester.scrollUntilVisible(find.text('연결 버스별 환승 평가'), 200);
+    await tester.scrollUntilVisible(
+      find.text('연결 버스별 환승 평가'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.textContaining('2번째 환승'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await state.restoreJourney(_id);
@@ -693,11 +711,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 450));
     await tester.pumpAndSettle();
     expect(find.text('장소 검색을 사용할 수 없어요'), findsOneWidget);
+    expect(
+      find.text('서버의 장소 검색 준비가 필요해요. 지금은 좌표를 직접 입력해 위치를 선택해 주세요.'),
+      findsOneWidget,
+    );
     expect(find.text('좌표 직접 입력'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await _show(tester, state, const RouteResultsPage());
     await tester.pumpAndSettle();
     expect(find.text('출발지 또는 도착지가 지원 구간 밖이에요.'), findsWidgets);
+    expect(find.text('검색 결과와 안내를 확인해 주세요.'), findsOneWidget);
     expect(find.byType(RouteTimeline), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
