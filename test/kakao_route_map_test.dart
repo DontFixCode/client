@@ -10,6 +10,8 @@ import 'package:bus/ui/widgets/route_map_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kakao_map_sdk/kakao_map_sdk.dart' as kakao;
 
 class _MapConfig extends CachingAssetBundle {
@@ -194,6 +196,117 @@ void main() {
     );
     expect(mapState.mounted, isFalse);
     expect(calls.where((call) => call.method == 'create'), hasLength(2));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+
+  testWidgets('612번 형상이 없으면 승하차 사이 경유 정류소를 한 번 조회해 개략 경로로 표시한다', (
+    tester,
+  ) async {
+    await prepare(tester);
+    const missingShapeLegs = <Json>[
+      {
+        'legIndex': 1,
+        'kind': 'bus',
+        'route': {'id': '612000', 'routeNo': '612'},
+        'patternKey': '612-east',
+        'board': {
+          'seq': 10,
+          'stopId': '612010',
+          'name': '승차 정류소',
+          'location': {'latitude': 36.352, 'longitude': 127.382},
+        },
+        'alight': {
+          'seq': 12,
+          'stopId': '612012',
+          'name': '하차 정류소',
+          'location': {'latitude': 36.344, 'longitude': 127.405},
+        },
+        'geometryStatus': 'unavailable',
+        'geometryReason': 'pattern_shape_not_collected',
+        'geometry': null,
+      },
+    ];
+    final requests = <http.Request>[];
+    final api = BusApi(
+      baseUrl: 'https://test',
+      accessToken: () async => 'token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          jsonEncode({
+            'routeId': '612000',
+            'patternKey': '612-east',
+            'items': [
+              for (final stop in [
+                [9, '612009', 36.36, 127.37],
+                [10, '612010', 36.352, 127.382],
+                [11, '612011', 36.349, 127.393],
+                [12, '612012', 36.344, 127.405],
+                [13, '612013', 36.34, 127.42],
+              ])
+                {
+                  'seq': stop[0],
+                  'stop': {
+                    'id': stop[1],
+                    'location': {'latitude': stop[2], 'longitude': stop[3]},
+                  },
+                },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(api.close);
+    Widget routeScreen(List<Json> routeLegs) => MaterialApp(
+      home: Scaffold(
+        body: RouteGeometry(legs: routeLegs, api: api),
+      ),
+    );
+
+    await tester.pumpWidget(routeScreen(missingShapeLegs));
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(requests.single.method, 'GET');
+    expect(
+      requests.single.url.path,
+      '/api/v1/routes/612000/patterns/612-east/stops',
+    );
+    final map = tester.widget<KakaoRouteMap>(find.byType(KakaoRouteMap));
+    expect(map.data.lines, hasLength(1));
+    final line = map.data.lines.single;
+    expect(line.approximate, isTrue);
+    expect(line.walking, isFalse);
+    expect(line.points, [
+      const Offset(127.382, 36.352),
+      const Offset(127.393, 36.349),
+      const Offset(127.405, 36.344),
+    ]);
+    expect(find.textContaining('정류소를 연결한 개략 경로'), findsWidgets);
+
+    final copied = (jsonDecode(jsonEncode(missingShapeLegs)) as List)
+        .cast<Json>();
+    await tester.pumpWidget(routeScreen(copied));
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(
+      tester.widget<KakaoRouteMap>(find.byType(KakaoRouteMap)).data.fingerprint,
+      map.data.fingerprint,
+    );
+
+    copied.single['board']['stopId'] = 'different-stop';
+    await tester.pumpWidget(routeScreen(copied));
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(
+      tester.widget<KakaoRouteMap>(find.byType(KakaoRouteMap)).data.lines,
+      isEmpty,
+    );
+    expect(find.textContaining('정류소를 연결한 개략 경로'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 }

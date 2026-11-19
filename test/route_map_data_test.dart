@@ -178,7 +178,7 @@ void main() {
     final origin = data.markers.singleWhere(
       (m) => m.point == const Offset(127.38, 36.35),
     );
-    expect(origin.endpoint, isTrue);
+    expect(origin.endpoint, RouteEndpoint.departure);
     expect(
       origin.label,
       allOf(
@@ -192,7 +192,7 @@ void main() {
     final transfer = data.markers.singleWhere(
       (m) => m.point == const Offset(127.40, 36.34),
     );
-    expect(transfer.endpoint, isFalse);
+    expect(transfer.endpoint, isNull);
     expect(
       transfer.label,
       allOf(
@@ -207,7 +207,7 @@ void main() {
     final destination = data.markers.singleWhere(
       (m) => m.point == const Offset(127.43, 36.33),
     );
-    expect(destination.endpoint, isTrue);
+    expect(destination.endpoint, RouteEndpoint.arrival);
     expect(
       destination.label,
       allOf(
@@ -218,6 +218,20 @@ void main() {
         contains('\n'),
       ),
     );
+  });
+
+  test('출발과 도착 좌표가 같으면 두 역할을 하나의 마커에 표시한다', () {
+    const place = Place(
+      id: 'station',
+      name: '대전역',
+      address: '',
+      latitude: 36.33,
+      longitude: 127.43,
+    );
+    final data = RouteMapData.fromLegs([], origin: place, destination: place);
+
+    expect(data.markers.single.endpoint, RouteEndpoint.both);
+    expect(data.markers.single.label, '출발 · 대전역\n도착 · 대전역');
   });
 
   test('누락되거나 범위 밖인 출발·도착·정류장 좌표는 마커로 만들지 않는다', () {

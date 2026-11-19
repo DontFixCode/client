@@ -130,6 +130,7 @@ class RouteDetailPage extends StatelessWidget {
                 legs: route.legs,
                 origin: route.origin,
                 destination: route.destination,
+                api: AppScope.of(context).api,
               )
             else
               ClipRRect(

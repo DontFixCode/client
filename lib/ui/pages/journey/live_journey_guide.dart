@@ -286,6 +286,7 @@ class LiveJourneyGuide extends StatelessWidget {
             legs: route.legs,
             origin: route.origin,
             destination: route.destination,
+            api: state.api,
           ),
           const SizedBox(height: 24),
           ExpansionTile(

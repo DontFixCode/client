@@ -6,6 +6,8 @@ import 'package:kakao_map_sdk/kakao_map_sdk.dart' as kakao;
 import '../theme/app_theme.dart';
 import 'route_map_data.dart';
 
+const approximateRouteColor = Color(0xFF7546A6);
+
 class KakaoMapUnavailable extends StatelessWidget {
   const KakaoMapUnavailable({super.key});
 
@@ -71,73 +73,51 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
     final generation = ++_generation;
     try {
       final busStyle = kakao.RouteStyle(
-        AppColors.primary,
+        AppColors.primaryDark,
+        9,
+        strokeColor: Colors.white,
+        strokeWidth: 3,
+      );
+      final walkingStyle = kakao.RouteStyle(
+        AppColors.muted,
+        6,
+        strokeColor: Colors.white,
+        strokeWidth: 2,
+      );
+      final approximateStyle = kakao.RouteStyle(
+        approximateRouteColor,
         7,
         strokeColor: Colors.white,
         strokeWidth: 2,
       );
-      final walkingStyle = kakao.RouteStyle(
-        AppColors.muted,
-        5,
-        strokeColor: Colors.white,
-        strokeWidth: 1,
-      );
       for (final line in widget.data.lines) {
         if (!_current(controller, generation)) return;
         if (line.points.length < 2) continue;
+        final style = line.approximate
+            ? approximateStyle
+            : line.walking
+            ? walkingStyle
+            : busStyle;
         await controller.routeLayer.addRoute(
           line.points.map(_position).toList(),
-          line.walking ? walkingStyle : busStyle,
+          style,
+          zOrder: line.approximate
+              ? 9999
+              : line.walking
+              ? 10000
+              : 10001,
         );
       }
-      final styles = <bool, kakao.PoiStyle>{};
+      final styles = <RouteEndpoint?, kakao.PoiStyle>{};
       for (final marker in widget.data.markers) {
         if (!_current(controller, generation)) return;
-        var style = styles[marker.endpoint];
-        if (style == null) {
-          final icon = await kakao.KImage.fromWidget(
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                marker.endpoint ? Icons.location_on : Icons.directions_bus,
-                color: marker.endpoint ? AppColors.primary : AppColors.blue,
-                size: 18,
-              ),
-            ),
-            const Size(22, 22),
-          );
-          if (!_current(controller, generation)) return;
-          style = kakao.PoiStyle(
-            icon: icon,
-            padding: 2,
-            textStyle: marker.endpoint
-                ? const [
-                    kakao.PoiTextStyle(
-                      size: 13,
-                      color: AppColors.text,
-                      stroke: 2,
-                      strokeColor: Colors.white,
-                    ),
-                  ]
-                : const [],
-          );
-          styles[marker.endpoint] = style;
-        }
+        final endpoint = marker.endpoint;
+        final style = styles[endpoint] ??= await _markerStyle(endpoint);
+        if (!_current(controller, generation)) return;
         await controller.labelLayer.addPoi(
           _position(marker.point),
           style: style,
-          text: marker.endpoint
-              ? marker.label
-                    .split('\n')
-                    .map((line) => line.split(' · ').first)
-                    .where((label) => label == '출발' || label == '도착')
-                    .toSet()
-                    .join('·')
-              : null,
-          rank: marker.endpoint ? 100 : 0,
+          rank: endpoint == null ? 0 : 100,
           onClick: () {
             if (!_current(controller, generation)) return;
             ScaffoldMessenger.maybeOf(context)
@@ -150,6 +130,69 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
     } catch (_) {
       if (_current(controller, generation)) _showError();
     }
+  }
+
+  Future<kakao.PoiStyle> _markerStyle(RouteEndpoint? endpoint) async {
+    if (endpoint == null) {
+      return kakao.PoiStyle(
+        anchor: const kakao.KPoint(.5, .5),
+        icon: await kakao.KImage.fromWidget(
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.directions_bus, color: AppColors.blue, size: 13),
+          ),
+          const Size(18, 18),
+        ),
+      );
+    }
+
+    final color = endpoint == RouteEndpoint.arrival
+        ? AppColors.error
+        : AppColors.primaryDark;
+    return kakao.PoiStyle(
+      // The center of the dot is the actual route endpoint coordinate.
+      anchor: const kakao.KPoint(.5, 31 / 35),
+      icon: await kakao.KImage.fromWidget(
+        Column(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 23,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color,
+                border: Border.all(color: Colors.white, width: 1.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                endpoint.label,
+                style: const TextStyle(
+                  inherit: false,
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
+            Container(width: 2, height: 4, color: color),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ],
+        ),
+        Size(endpoint == RouteEndpoint.both ? 66 : 42, 35),
+      ),
+    );
   }
 
   Future<void> _fitRoute() async {
@@ -171,8 +214,10 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
         );
       } else {
         // SDK 1.3.1 ignores fitMapPoints.padding on iOS, so expand the bounds.
-        final padX = math.max((maxX - minX) * .18, .0003);
-        final padY = math.max((maxY - minY) * .18, .0003);
+        final hasEndpoints = widget.data.markers.any((m) => m.endpoint != null);
+        final padding = hasEndpoints ? .24 : .18;
+        final padX = math.max((maxX - minX) * padding, .0003);
+        final padY = math.max((maxY - minY) * padding, .0003);
         await controller.moveCamera(
           kakao.CameraUpdate.fitMapPoints(
             [
