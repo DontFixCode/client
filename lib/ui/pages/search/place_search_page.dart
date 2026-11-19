@@ -52,9 +52,9 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
           setState(() {
             _error = switch (error) {
               ApiException(code: 'PLACES_NOT_CONFIGURED') =>
-                '서버의 장소 검색 준비가 필요해요. 지금은 좌표를 직접 입력해 위치를 선택해 주세요.',
+                '장소 검색 서비스가 아직 준비되지 않았어요. 나중에 다시 시도해 주세요.',
               ApiException(code: 'PLACES_UNAVAILABLE') =>
-                '장소 검색에 일시적으로 연결할 수 없어요. 잠시 후 다시 시도하거나 좌표를 직접 입력해 주세요.',
+                '장소 검색에 일시적으로 연결할 수 없어요. 잠시 후 다시 시도해 주세요.',
               _ => error.toString(),
             };
           });
@@ -65,90 +65,6 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
         }
       }
     });
-  }
-
-  Future<void> _coordinates() async {
-    final form = GlobalKey<FormState>();
-    var latitude = '', longitude = '', name = '';
-    final place = await showDialog<Place>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('좌표로 위치 지정'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('위도·경도를 입력해 원하는 위치를 직접 지정할 수 있어요.'),
-                TextFormField(
-                  decoration: const InputDecoration(labelText: '장소 이름 (선택)'),
-                  onChanged: (v) => name = v,
-                  maxLength: 200,
-                ),
-                TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: '위도',
-                    hintText: '36.35',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  onChanged: (v) => latitude = v,
-                  validator: (v) {
-                    final n = double.tryParse(v ?? '');
-                    return n != null && n.isFinite && n >= -90 && n <= 90
-                        ? null
-                        : '위도는 -90~90 사이 숫자예요.';
-                  },
-                ),
-                TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: '경도',
-                    hintText: '127.38',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  onChanged: (v) => longitude = v,
-                  validator: (v) {
-                    final n = double.tryParse(v ?? '');
-                    return n != null && n.isFinite && n >= -180 && n <= 180
-                        ? null
-                        : '경도는 -180~180 사이 숫자예요.';
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!form.currentState!.validate()) return;
-              Navigator.pop(
-                ctx,
-                Place(
-                  id: 'coordinate:$latitude,$longitude',
-                  name: name.trim().isEmpty ? '직접 지정한 위치' : name.trim(),
-                  address: '$latitude, $longitude',
-                  latitude: double.parse(latitude),
-                  longitude: double.parse(longitude),
-                ),
-              );
-            },
-            child: const Text('이 위치 선택'),
-          ),
-        ],
-      ),
-    );
-    if (mounted && place != null) Navigator.pop(context, place);
   }
 
   @override
@@ -238,12 +154,6 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
                         ),
                       ),
                     ),
-                  if (!state.demoMode)
-                    TextButton.icon(
-                      onPressed: _coordinates,
-                      icon: const Icon(Icons.pin_drop_outlined),
-                      label: const Text('좌표 직접 입력'),
-                    ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
@@ -293,7 +203,7 @@ class _PlaceSearchPageState extends State<PlaceSearchPage> {
                             ? '대전역, 한밭수목원 등\n체험 장소의 이름이나 주소로 검색해 주세요.'
                             : _query.isEmpty
                             ? '장소 이름이나 주소로 출발지·도착지를 찾아보세요.'
-                            : '다른 장소 이름이나 주소로 검색해 보세요.\n좌표를 직접 지정할 수도 있어요.',
+                            : '다른 장소 이름이나 주소로 검색해 보세요.',
                       ),
               )
             else

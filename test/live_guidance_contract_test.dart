@@ -62,6 +62,12 @@ Future<void> _show(WidgetTester tester, AppState state) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openBoarding(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('버스에 탑승했어요'));
+  await tester.tap(find.text('버스에 탑승했어요'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('다음 승차 차량·도착시각과 추정 근거를 실제 안내에 표시한다', (tester) async {
     final state = _state(
@@ -156,6 +162,173 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('처음 열린 확인 창이 늦게 도착한 차량번호를 받되 수동 입력은 유지한다', (tester) async {
+    final state = _state();
+    addTearDown(state.dispose);
+    await _show(tester, state);
+
+    for (final manual in [null, '대전75자9228']) {
+      state.journey!['guidance'] = null;
+      state.notifyListeners();
+      await tester.pumpAndSettle();
+      await _openBoarding(tester);
+      final field = find.byType(TextField).last;
+      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+      expect(find.text('도착 예정 차량번호를 확인 중이에요.'), findsOneWidget);
+      if (manual != null) await tester.enterText(field, manual);
+
+      state.journey!['guidance'] = {
+        'baseStateVersion': 1,
+        'nextBoarding': {
+          'legIndex': 1,
+          'vehicle': {'vehicleId': '대전75자2511'},
+        },
+      };
+      state.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        manual ?? '대전75자2511',
+      );
+      await tester.tap(find.text('확인한 정보 저장'));
+      await tester.pumpAndSettle();
+      expect(state.event!['payload']['vehicleId'], manual ?? '대전75자2511');
+      expect(
+        state.event!['payload']['confirmation'],
+        manual == null ? 'user_confirmed' : 'user_entered_vehicle',
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('평가 차량을 우선 입력하고 확인·직접 수정·비움을 구분해 저장한다', (tester) async {
+    final state = _state(
+      guidance: {
+        'nextBoarding': {
+          'legIndex': 1,
+          'routeId': '1',
+          'patternKey': 'planned',
+          'vehicle': {'vehicleId': '대전75자1234'},
+          'upcoming': [
+            {'vehicleId': '대전75자5678'},
+          ],
+        },
+      },
+    );
+    addTearDown(state.dispose);
+    await _show(tester, state);
+
+    for (final (input, vehicleId, confirmation) in [
+      (null, '대전75자1234', 'user_confirmed'),
+      ('대전75자9999', '대전75자9999', 'user_entered_vehicle'),
+      ('', null, 'user_selected_route'),
+    ]) {
+      await _openBoarding(tester);
+      final field = find.byType(TextField).last;
+      expect(tester.widget<TextField>(field).controller!.text, '대전75자1234');
+      if (input != null) await tester.enterText(field, input);
+      await tester.tap(find.text('확인한 정보 저장'));
+      await tester.pumpAndSettle();
+      expect(state.event, {
+        'eventType': 'board',
+        'payload': {
+          'legIndex': 1,
+          'routeId': '1',
+          'patternKey': 'planned',
+          'directionCode': '0',
+          'vehicleId': vehicleId,
+          'confirmation': confirmation,
+        },
+      });
+    }
+    await _openBoarding(tester);
+    await tester.enterText(find.byType(TextField).first, '916');
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+      isEmpty,
+    );
+    await tester.tap(find.text('지금은 확인하기 어려워요'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('평가 차량번호가 없으면 같은 구간의 유일한 도착 예정 차량번호를 입력한다', (tester) async {
+    final state = _state(
+      guidance: {
+        'nextBoarding': {
+          'legIndex': 1,
+          'vehicle': {'vehicleId': null},
+          'upcoming': [
+            {'vehicleId': null},
+            {'vehicleId': '대전75자5678'},
+            {'vehicleId': '대전75자5678'},
+          ],
+        },
+      },
+    );
+    addTearDown(state.dispose);
+    await _show(tester, state);
+    await _openBoarding(tester);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+      '대전75자5678',
+    );
+    await tester.tap(find.text('확인한 정보 저장'));
+    await tester.pumpAndSettle();
+    expect(state.event!['payload']['vehicleId'], '대전75자5678');
+    expect(state.event!['payload']['confirmation'], 'user_confirmed');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('구간·상태·노선이 다르거나 차량 후보가 여러 대면 자동 입력하지 않는다', (tester) async {
+    final state = _state();
+    addTearDown(state.dispose);
+    state.activeRoute!.legs.single['vehicle'] = {'vehicleId': '검색 당시 차량'};
+    await _show(tester, state);
+    const next = <String, dynamic>{
+      'legIndex': 1,
+      'routeId': '1',
+      'patternKey': 'planned',
+      'vehicle': {'vehicleId': '대전75자1234'},
+    };
+    for (final scenario in <String, Json>{
+      '다른 구간': {
+        'nextBoarding': {...next, 'legIndex': 3},
+      },
+      '오래된 상태': {'baseStateVersion': 0, 'nextBoarding': next},
+      '다른 노선': {
+        'nextBoarding': {...next, 'routeId': '2'},
+      },
+      '다른 패턴': {
+        'nextBoarding': {...next, 'patternKey': 'other'},
+      },
+      '여러 도착 예정 차량': {
+        'nextBoarding': {
+          'legIndex': 1,
+          'upcoming': [
+            {'vehicleId': '대전75자1234'},
+            {'vehicleId': '대전75자5678'},
+          ],
+        },
+      },
+    }.entries) {
+      state.journey!['guidance'] = {'baseStateVersion': 1, ...scenario.value};
+      state.notifyListeners();
+      await tester.pumpAndSettle();
+      await _openBoarding(tester);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        isEmpty,
+        reason: scenario.key,
+      );
+      await tester.tap(find.text('지금은 확인하기 어려워요'));
+      await tester.pumpAndSettle();
+    }
+    expect(state.event, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('차량번호만 정정할 때 실제 저장한 노선·패턴·방향을 보존한다', (tester) async {
     final state = _state(
       movement: 'onboard',
@@ -168,12 +341,22 @@ void main() {
         'matchesPlannedRoute': false,
         'eventId': '90',
       },
+      guidance: {
+        'nextBoarding': {
+          'legIndex': 1,
+          'vehicle': {'vehicleId': 'newly-suggested-vehicle'},
+        },
+      },
     );
     addTearDown(state.dispose);
     await _show(tester, state);
     await tester.ensureVisible(find.text('탑승 노선·방향·차량 수정'));
     await tester.tap(find.text('탑승 노선·방향·차량 수정'));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+      'old-vehicle',
+    );
     await tester.enterText(find.byType(TextField).last, 'new-vehicle');
     await tester.tap(find.text('확인한 정보 저장'));
     await tester.pumpAndSettle();

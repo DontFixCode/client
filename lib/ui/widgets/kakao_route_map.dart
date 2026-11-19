@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:kakao_map_sdk/kakao_map_sdk.dart' as kakao;
 
@@ -49,6 +47,7 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
   kakao.KakaoMapController? _controller;
   bool _failed = false;
   int _generation = 0;
+  Size _viewport = Size.zero;
 
   List<Offset> get _points => [
     for (final line in widget.data.lines) ...line.points,
@@ -198,43 +197,15 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
   Future<void> _fitRoute() async {
     final controller = _controller;
     final generation = _generation;
-    final points = _points;
-    if (controller == null || points.isEmpty) return;
-    final minX = points.map((point) => point.dx).reduce(math.min);
-    final maxX = points.map((point) => point.dx).reduce(math.max);
-    final minY = points.map((point) => point.dy).reduce(math.min);
-    final maxY = points.map((point) => point.dy).reduce(math.max);
+    final camera = widget.data.cameraFor(_viewport);
+    if (controller == null || camera == null) return;
     try {
-      if (minX == maxX && minY == maxY) {
-        await controller.moveCamera(
-          kakao.CameraUpdate.newCenterPosition(
-            _position(points.first),
-            zoomLevel: 16,
-          ),
-        );
-      } else {
-        // SDK 1.3.1 ignores fitMapPoints.padding on iOS, so expand the bounds.
-        final hasEndpoints = widget.data.markers.any((m) => m.endpoint != null);
-        final padding = hasEndpoints ? .24 : .18;
-        final padX = math.max((maxX - minX) * padding, .0003);
-        final padY = math.max((maxY - minY) * padding, .0003);
-        await controller.moveCamera(
-          kakao.CameraUpdate.fitMapPoints(
-            [
-              kakao.LatLng(
-                (minY - padY).clamp(-90.0, 90.0).toDouble(),
-                (minX - padX).clamp(-180.0, 180.0).toDouble(),
-              ),
-              kakao.LatLng(
-                (maxY + padY).clamp(-90.0, 90.0).toDouble(),
-                (maxX + padX).clamp(-180.0, 180.0).toDouble(),
-              ),
-            ],
-            padding: 24,
-            zoomLevel: 16,
-          ),
-        );
-      }
+      await controller.moveCamera(
+        kakao.CameraUpdate.newCenterPosition(
+          _position(camera.center),
+          zoomLevel: camera.zoomLevel,
+        ),
+      );
     } catch (_) {
       if (_current(controller, generation)) _showError();
     }
@@ -244,41 +215,55 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
   Widget build(BuildContext context) {
     final points = _points;
     if (_failed) return widget.fallback;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTheme.radius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Semantics(
-            label: points.isEmpty
-                ? '대전 지역 지도'
-                : '경로 지도. ${widget.data.markers.map((marker) => marker.label).join(', ')}',
-            child: kakao.KakaoMap(
-              option: kakao.KakaoMapOption(
-                position: points.isEmpty
-                    ? const kakao.LatLng(36.3324, 127.4342)
-                    : _position(points.first),
-                zoomLevel: points.isEmpty ? 12 : 16,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = constraints.biggest;
+        if (viewport != _viewport) {
+          _viewport = viewport;
+          if (_controller != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _fitRoute();
+            });
+          }
+        }
+        final camera = widget.data.cameraFor(viewport);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Semantics(
+                label: points.isEmpty
+                    ? '대전 지역 지도'
+                    : '경로 지도. ${widget.data.markers.map((marker) => marker.label).join(', ')}',
+                child: kakao.KakaoMap(
+                  option: kakao.KakaoMapOption(
+                    position: camera == null
+                        ? const kakao.LatLng(36.3324, 127.4342)
+                        : _position(camera.center),
+                    zoomLevel: camera?.zoomLevel ?? 12,
+                  ),
+                  onMapReady: _onMapReady,
+                  onMapError: (_) => _showError(),
+                ),
               ),
-              onMapReady: _onMapReady,
-              onMapError: (_) => _showError(),
-            ),
-          ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: IconButton.filledTonal(
-              tooltip: '전체 경로 보기',
-              style: IconButton.styleFrom(backgroundColor: Colors.white),
-              onPressed: _controller == null ? null : _fitRoute,
-              icon: const Icon(
-                Icons.zoom_out_map,
-                color: AppColors.primaryDark,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton.filledTonal(
+                  tooltip: '전체 경로 보기',
+                  style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  onPressed: _controller == null ? null : _fitRoute,
+                  icon: const Icon(
+                    Icons.zoom_out_map,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

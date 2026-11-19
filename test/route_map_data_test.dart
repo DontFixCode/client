@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Size;
 
 import 'package:bus/data/bus_api.dart';
 import 'package:bus/models/place.dart';
@@ -15,6 +16,33 @@ void main() {
     [127.38, 36.35],
     [127.43, 36.33],
   ];
+
+  test('대전 경로 카메라는 실제 뷰 크기로 계산하며 먼 목적지도 제외하지 않는다', () {
+    final data = RouteMapData.fromLegs([
+      {'kind': 'walk', 'geometry': _line(coordinates)},
+    ]);
+    final camera = data.cameraFor(const Size(360, 280))!;
+    expect(camera.center.dx, closeTo(127.405, .00001));
+    expect(camera.center.dy, closeTo(36.34, .00001));
+    expect(camera.zoomLevel, inInclusiveRange(12, 14));
+    expect(data.cameraFor(Size.zero), isNull);
+    expect(data.cameraFor(const Size(1, 1)), isNull);
+    expect(
+      data.cameraFor(const Size(200, 280))!.zoomLevel,
+      lessThan(camera.zoomLevel),
+    );
+    final longRoute = RouteMapData.fromLegs([
+      {
+        'kind': 'walk',
+        'geometry': _line([
+          ...coordinates,
+          [129.0756, 35.1796],
+        ]),
+      },
+    ]).cameraFor(const Size(360, 280))!;
+    expect(longRoute.zoomLevel, lessThan(camera.zoomLevel));
+    expect(longRoute.center.dx, greaterThan(128));
+  });
 
   test('확보된 버스 형상과 사용 가능한 도보만 경도·위도 순서로 읽는다', () {
     final geometry = _line(coordinates);

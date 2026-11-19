@@ -21,26 +21,25 @@ class LiveJourneyGuide extends StatelessWidget {
     Json leg, {
     bool correction = false,
   }) async {
+    final journeyId = state.journeyId;
+    final boarded = correction ? state.progress['boarded'] as Json? : null;
+    if (journeyId == null || (correction && boarded == null)) return;
     final payload = await showDialog<Json>(
       context: context,
-      builder: (_) => _BoardingDialog(
-        leg: leg,
-        boarded: correction ? state.progress['boarded'] as Json? : null,
-      ),
+      builder: (_) =>
+          _BoardingDialog(leg: leg, journeyId: journeyId, boarded: boarded),
     );
-    if (payload == null || !context.mounted) return;
+    if (payload == null || !context.mounted || state.journeyId != journeyId) {
+      return;
+    }
     await apiAction(
       context,
       () => state.sendJourneyEvent(correction ? 'correction' : 'board', {
         if (correction)
-          'supersedesEventId': state.progress['boarded']['eventId']
+          'supersedesEventId': boarded?['eventId']
         else
           'legIndex': leg['legIndex'],
         ...payload,
-        if (!correction)
-          'confirmation': payload['vehicleId'] == null
-              ? 'user_selected_route'
-              : 'user_entered_vehicle',
       }),
     );
   }
@@ -366,6 +365,35 @@ class LiveJourneyGuide extends StatelessWidget {
   }
 }
 
+String? _suggestedVehicle(AppState state, Json leg) {
+  final next = state.guidance?['nextBoarding'];
+  if (next is! Map || next['legIndex'] != leg['legIndex']) return null;
+  final routeId = next['routeId'];
+  final pattern = next['patternKey'];
+  if ((routeId != null && routeId != leg['route']?['id']) ||
+      (pattern != null && pattern != leg['patternKey'])) {
+    return null;
+  }
+
+  String? number(Object? value) {
+    if (value is! String) return null;
+    final plate = value.trim();
+    return plate.isNotEmpty && plate.length <= 50 ? plate : null;
+  }
+
+  final evaluated = next['vehicle'];
+  final selected = number(evaluated is Map ? evaluated['vehicleId'] : null);
+  if (selected != null) return selected;
+
+  final upcoming = next['upcoming'];
+  if (upcoming is! List) return null;
+  final plates = {
+    for (final candidate in upcoming.whereType<Map>())
+      ?number(candidate['vehicleId']),
+  };
+  return plates.length == 1 ? plates.single : null;
+}
+
 String _minutes(dynamic seconds) =>
     seconds is num ? '${minutesFromSeconds(seconds)}분' : '확인 불가';
 String _probability(dynamic value) {
@@ -381,8 +409,13 @@ String _time(dynamic value) {
 }
 
 class _BoardingDialog extends StatefulWidget {
-  const _BoardingDialog({required this.leg, this.boarded});
+  const _BoardingDialog({
+    required this.leg,
+    required this.journeyId,
+    this.boarded,
+  });
   final Json leg;
+  final String journeyId;
   final Json? boarded;
   @override
   State<_BoardingDialog> createState() => _BoardingDialogState();
@@ -394,6 +427,8 @@ class _BoardingDialogState extends State<_BoardingDialog> {
   Json? _route, _pattern;
   List<Json> _routes = [], _patterns = [];
   bool _loading = false;
+  bool _allowPrefill = true;
+  String? _prefilledVehicle;
   String? _error;
   @override
   void initState() {
@@ -410,7 +445,24 @@ class _BoardingDialogState extends State<_BoardingDialog> {
         'directionCode': boarded['directionCode'],
       };
     }
-    _vehicle.text = widget.boarded?['vehicleId'] as String? ?? '';
+    _vehicle.text = boarded?['vehicleId'] as String? ?? '';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = AppScope.of(context);
+    if (widget.boarded != null ||
+        !_allowPrefill ||
+        state.journeyId != widget.journeyId ||
+        state.progress['nextBusLegIndex'] != widget.leg['legIndex']) {
+      return;
+    }
+    final vehicle = _suggestedVehicle(state, widget.leg);
+    if (vehicle == null) return;
+    _allowPrefill = false;
+    _prefilledVehicle = vehicle;
+    _vehicle.text = vehicle;
   }
 
   @override
@@ -420,15 +472,22 @@ class _BoardingDialogState extends State<_BoardingDialog> {
     super.dispose();
   }
 
+  void _resetRouteSelection() {
+    if (_vehicle.text.trim() == _prefilledVehicle) _vehicle.clear();
+    _allowPrefill = false;
+    _prefilledVehicle = null;
+    _route = null;
+    _pattern = null;
+    _patterns = [];
+  }
+
   Future<void> _lookup() async {
     final api = AppScope.of(context).api;
     setState(() {
       _loading = true;
       _error = null;
-      _route = null;
-      _pattern = null;
+      _resetRouteSelection();
       _routes = [];
-      _patterns = [];
     });
     try {
       final result = await api.request(
@@ -470,8 +529,29 @@ class _BoardingDialogState extends State<_BoardingDialog> {
     }
   }
 
+  void _confirm() {
+    final vehicle = _vehicle.text.trim();
+    Navigator.pop(context, <String, dynamic>{
+      'routeId': _route!['id'],
+      'patternKey': _pattern != null
+          ? _pattern!['patternKey']
+          : widget.leg['patternKey'],
+      'directionCode': _pattern != null
+          ? _pattern!['directionCode']
+          : widget.leg['board']?['directionCode'],
+      'vehicleId': vehicle.isEmpty ? null : vehicle,
+      if (widget.boarded == null)
+        'confirmation': vehicle.isEmpty
+            ? 'user_selected_route'
+            : vehicle == _prefilledVehicle
+            ? 'user_confirmed'
+            : 'user_entered_vehicle',
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final state = AppScope.of(context);
     final planned =
         _route?['id'] == widget.leg['route']?['id'] && _patterns.isEmpty;
     final canConfirm =
@@ -489,18 +569,22 @@ class _BoardingDialogState extends State<_BoardingDialog> {
                 '계획: ${widget.leg['route']?['routeNo']}번 · ${widget.leg['board']?['name']} → ${widget.leg['alight']?['name']}',
               ),
               const SizedBox(height: 8),
-              const Text('노선·방향을 실제로 확인한 뒤 저장해 주세요. 차량번호를 모르면 비워 두세요.'),
+              Text(
+                _prefilledVehicle != null
+                    ? '안내 차량번호를 미리 채웠어요. 노선·방향과 실제 차량번호를 확인해 주세요. 번호가 다르면 수정하고, 모르면 비워 두세요.'
+                    : '노선·방향을 실제로 확인한 뒤 저장해 주세요. 차량번호를 모르면 비워 두세요.',
+              ),
+              if (widget.boarded == null &&
+                  _allowPrefill &&
+                  state.guidance == null)
+                const Text('도착 예정 차량번호를 확인 중이에요.'),
               if (widget.boarded != null)
                 const Text(
                   '차량번호만 수정하면 저장된 노선·방향을 유지해요. 노선·방향을 바꾸려면 번호로 다시 검색해 주세요.',
                 ),
               TextField(
                 controller: _number,
-                onChanged: (_) => setState(() {
-                  _route = null;
-                  _pattern = null;
-                  _patterns = [];
-                }),
+                onChanged: (_) => setState(_resetRouteSelection),
                 decoration: const InputDecoration(labelText: '버스 번호'),
                 maxLength: 30,
               ),
@@ -529,6 +613,9 @@ class _BoardingDialogState extends State<_BoardingDialog> {
                 ),
               TextField(
                 controller: _vehicle,
+                onChanged: (_) {
+                  if (_allowPrefill) setState(() => _allowPrefill = false);
+                },
                 maxLength: 50,
                 decoration: const InputDecoration(labelText: '실제 차량번호 (선택)'),
               ),
@@ -546,20 +633,7 @@ class _BoardingDialogState extends State<_BoardingDialog> {
           child: const Text('지금은 확인하기 어려워요'),
         ),
         FilledButton(
-          onPressed: !canConfirm
-              ? null
-              : () => Navigator.pop(context, <String, dynamic>{
-                  'routeId': _route!['id'],
-                  'patternKey': _pattern != null
-                      ? _pattern!['patternKey']
-                      : widget.leg['patternKey'],
-                  'directionCode': _pattern != null
-                      ? _pattern!['directionCode']
-                      : widget.leg['board']?['directionCode'],
-                  'vehicleId': _vehicle.text.trim().isEmpty
-                      ? null
-                      : _vehicle.text.trim(),
-                }),
+          onPressed: canConfirm ? _confirm : null,
           child: const Text('확인한 정보 저장'),
         ),
       ],

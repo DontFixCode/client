@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../data/bus_api.dart';
@@ -169,6 +170,45 @@ class RouteMapData {
   final List<RouteMapLine> lines = [];
   final List<RouteMapMarker> markers = [];
   final Set<BusPattern> missingPatterns = {};
+
+  ({Offset center, int zoomLevel})? cameraFor(Size viewport) {
+    if (!viewport.width.isFinite ||
+        !viewport.height.isFinite ||
+        viewport.width <= 96 ||
+        viewport.height <= 96) {
+      return null;
+    }
+    final points = [
+      for (final line in lines) ...line.points,
+      for (final marker in markers) marker.point,
+    ];
+    if (points.isEmpty) return null;
+    double projectedY(double latitude) {
+      final radians = latitude.clamp(-85.05112878, 85.05112878) * math.pi / 180;
+      return (1 - math.log(math.tan(math.pi / 4 + radians / 2)) / math.pi) / 2;
+    }
+
+    final minX = points.map((p) => (p.dx + 180) / 360).reduce(math.min);
+    final maxX = points.map((p) => (p.dx + 180) / 360).reduce(math.max);
+    final minY = points.map((p) => projectedY(p.dy)).reduce(math.min);
+    final maxY = points.map((p) => projectedY(p.dy)).reduce(math.max);
+    // Use Flutter's laid-out viewport, not iOS's temporary 1x1 native view.
+    // Reserve room for the endpoint badges and the map controls.
+    final scale = math.max(
+      (maxX - minX) * 256 / (viewport.width - 96),
+      (maxY - minY) * 256 / (viewport.height - 96),
+    );
+    final y = math.pi * (1 - minY - maxY);
+    return (
+      center: Offset(
+        (minX + maxX) * 180 - 180,
+        (2 * math.atan(math.exp(y)) - math.pi / 2) * 180 / math.pi,
+      ),
+      zoomLevel: scale == 0
+          ? 16
+          : (-math.log(scale) / math.ln2).floor().clamp(6, 16),
+    );
+  }
 
   // Route objects are recreated on every journey update. Only map content
   // changes should recreate the native map, preserving the user's camera.

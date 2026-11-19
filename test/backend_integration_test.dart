@@ -712,10 +712,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('장소 검색을 사용할 수 없어요'), findsOneWidget);
     expect(
-      find.text('서버의 장소 검색 준비가 필요해요. 지금은 좌표를 직접 입력해 위치를 선택해 주세요.'),
+      find.text('장소 검색 서비스가 아직 준비되지 않았어요. 나중에 다시 시도해 주세요.'),
       findsOneWidget,
     );
-    expect(find.text('좌표 직접 입력'), findsOneWidget);
+    expect(find.textContaining('좌표'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await _show(tester, state, const RouteResultsPage());
     await tester.pumpAndSettle();

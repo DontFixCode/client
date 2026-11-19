@@ -24,6 +24,30 @@ class _MapConfig extends CachingAssetBundle {
   );
 }
 
+class _Route extends Fake implements kakao.Route {}
+
+class _Routes extends Fake implements kakao.RouteController {
+  @override
+  Future<kakao.Route> addRoute(
+    List<kakao.LatLng> points,
+    kakao.RouteStyle style, {
+    String? id,
+    kakao.CurveType curveType = kakao.CurveType.none,
+    int zOrder = 10000,
+  }) async => _Route();
+}
+
+class _Controller extends Fake implements kakao.KakaoMapController {
+  final cameras = <kakao.CameraUpdate>[];
+  @override
+  final routeLayer = _Routes();
+  @override
+  Future<void> moveCamera(
+    kakao.CameraUpdate camera, {
+    kakao.CameraAnimation? animation,
+  }) async => cameras.add(camera);
+}
+
 void main() {
   const sdkChannel = MethodChannel('flutter_kakao_maps_sdk');
   const legs = <Json>[
@@ -131,13 +155,54 @@ void main() {
     expect(find.byType(KakaoRouteMap), findsOneWidget);
     expect(find.byType(UiKitView), findsOneWidget);
     expect(calls.where((call) => call.method == 'create'), hasLength(1));
-    expect(
-      tester
-          .widget<kakao.KakaoMap>(find.byType(kakao.KakaoMap))
-          .option!
-          .position,
-      const kakao.LatLng(36.35, 127.38),
+    final option = tester
+        .widget<kakao.KakaoMap>(find.byType(kakao.KakaoMap))
+        .option!;
+    expect(option.position.latitude, closeTo(36.34, .00001));
+    expect(option.position.longitude, closeTo(127.405, .00001));
+    expect(option.zoomLevel, inInclusiveRange(12, 14));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+
+  testWidgets('지도 준비·전체 보기·크기 변경은 같은 명시적 경로 카메라를 사용한다', (tester) async {
+    await prepare(tester);
+    final data = RouteMapData.fromLegs(legs);
+    Widget sizedMap(double width) => MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: width,
+            height: 280,
+            child: KakaoRouteMap(data: data, fallback: const Text('오류')),
+          ),
+        ),
+      ),
     );
+    await tester.pumpWidget(sizedMap(360));
+    await tester.pump();
+    final controller = _Controller();
+    final map = tester.widget<kakao.KakaoMap>(find.byType(kakao.KakaoMap));
+    map.onMapReady(controller);
+    await tester.pump();
+    final initial = controller.cameras.single;
+    expect(initial.type, kakao.CameraUpdateType.newCenterPoint);
+    expect(initial.zoomLevel, map.option!.zoomLevel);
+    expect(initial.position, map.option!.position);
+    expect(initial.zoomLevel, inInclusiveRange(12, 14));
+
+    await tester.tap(find.byTooltip('전체 경로 보기'));
+    await tester.pump();
+    expect(controller.cameras.last, initial);
+    final count = controller.cameras.length;
+    await tester.pumpWidget(sizedMap(360));
+    await tester.pump();
+    expect(controller.cameras, hasLength(count));
+
+    await tester.pumpWidget(sizedMap(200));
+    await tester.pump();
+    expect(controller.cameras.last.zoomLevel, lessThan(initial.zoomLevel));
+    expect(controller.cameras.last.position, initial.position);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 

@@ -71,6 +71,36 @@ Future<void> _show(WidgetTester tester, AppState state, Widget page) async {
 }
 
 void main() {
+  for (final isOrigin in [true, false]) {
+    testWidgets(
+      '${isOrigin ? 'origin' : 'destination'} search has no manual coordinate input',
+      (tester) async {
+        final state = _state(
+          MockClient((request) async {
+            expect(request.url.queryParameters['q'], '둔산로 100');
+            return _json({'items': []});
+          }),
+        );
+        addTearDown(state.dispose);
+        await _show(tester, state, PlaceSearchPage(isOrigin: isOrigin));
+
+        expect(find.byType(TextField), findsOneWidget);
+        expect(find.textContaining('좌표'), findsNothing);
+        expect(
+          find.widgetWithText(OutlinedButton, '현재 위치 사용'),
+          isOrigin ? findsOneWidget : findsNothing,
+        );
+
+        await tester.enterText(find.byType(TextField), '둔산로 100');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(find.text('다른 장소 이름이나 주소로 검색해 보세요.'), findsOneWidget);
+        expect(find.textContaining('좌표'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final entry in {
     'keyword': _keywordPlace,
     'address': _addressPlace,
@@ -173,7 +203,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('장소 검색을 사용할 수 없어요'), findsOneWidget);
     expect(
-      find.text('장소 검색에 일시적으로 연결할 수 없어요. 잠시 후 다시 시도하거나 좌표를 직접 입력해 주세요.'),
+      find.text('장소 검색에 일시적으로 연결할 수 없어요. 잠시 후 다시 시도해 주세요.'),
       findsOneWidget,
     );
     expect(find.text('검색 결과 0개'), findsNothing);

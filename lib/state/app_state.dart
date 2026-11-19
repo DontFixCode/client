@@ -272,7 +272,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if (!origin.hasCoordinates || destination?.hasCoordinates != true) {
         throw const ApiException(
           'COORDINATES_REQUIRED',
-          '출발지와 도착지를 GPS·장소 검색·좌표 입력으로 지정해 주세요.',
+          '출발지와 도착지를 장소 이름이나 주소로 검색해 주세요. 출발지는 현재 위치를 사용할 수 있어요.',
         );
       }
       if (origin.latitude == destination!.latitude &&
@@ -689,7 +689,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         permission == LocationPermission.deniedForever) {
       throw const ApiException(
         'LOCATION_DENIED',
-        '위치 권한이 필요해요. 기기 설정에서 허용하거나 좌표를 직접 입력해 주세요.',
+        '위치 권한이 필요해요. 기기 설정에서 허용하거나 장소 이름이나 주소로 검색해 주세요.',
       );
     }
     final position = await Geolocator.getCurrentPosition(
