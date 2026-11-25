@@ -26,6 +26,24 @@ String dataReason(String code) => switch (code) {
   'access_walk_progress_unknown_full_duration_assumed' =>
     '도보 진행을 몰라 전체 도보시간으로 계산했어요.',
   'no_remaining_bus_leg' => '남은 버스 구간 없이 마지막 도보를 안내해요.',
+  'fresh_location_required_for_destination_change' ||
+  'fresh_location_required_after_alight' =>
+    '새 목적지까지 검색하려면 최근 위치가 필요해요. 현재 위치 전송을 눌러 주세요.',
+  'confirmed_onboard_segment_fixed_until_alight' =>
+    '탑승 중인 구간을 계속 안내해요. 하차 확인 후 새 경로를 찾을 수 있어요.',
+  'destination_reroute_pending' => '새 목적지까지의 경로를 계산하고 있어요.',
+  'current_route_not_comparable_for_destination' =>
+    '새 목적지까지 현재 경로와 비교할 수 있는 자료가 없어 경로를 유지해요.',
+  'destination_reroute_no_candidates' => '새 목적지까지 이용할 수 있는 새 경로를 찾지 못했어요.',
+  'destination_reroute_not_queued' ||
+  'search_settings_unavailable' ||
+  'route_search_unavailable' => '새 목적지까지의 경로 검색을 시작하지 못했어요.',
+  'current_route_not_comparable' ||
+  'current_route_not_evaluated' ||
+  'no_comparable_alternative' => '현재 경로와 비교할 수 있는 대체 경로가 없어요.',
+  'current_route_not_slower' ||
+  'improvement_below_or_equal_threshold' => '현재 경로를 유지하는 편이 좋아요.',
+  'phase5_reevaluation_not_implemented' => '현재 서버에서는 이동 중 경로 변경을 지원하지 않아요.',
   'service_area_unavailable' => '지원 범위를 판단할 자료가 부족해요.',
   'SEARCH_EXPIRED' => '검색 유효기간이 지났어요. 새로 검색해 주세요.',
   'CANDIDATE_NOT_STARTABLE' => '현재 시작할 수 없는 연결이에요.',

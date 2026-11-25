@@ -126,7 +126,18 @@ class TransferResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final transfers = (journey['transferResults'] as List? ?? []).cast<Json>();
+    final active = journey['lifecycleStatus'] == 'active';
+    final selection = journey['selectionVersion'];
+    bool previousRoute(Json transfer) =>
+        selection is int &&
+        transfer['selectionVersion'] is int &&
+        transfer['selectionVersion'] != selection;
+    final transfers = (journey['transferResults'] as List? ?? [])
+        .cast<Json>()
+        .where(
+          (transfer) =>
+              !active || !previousRoute(transfer) || transfer['result'] != null,
+        );
     final completed =
         journey['currentProgress']?['completedBusLegs'] as List? ?? [];
     return Column(
@@ -156,7 +167,9 @@ class TransferResults extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${transfer['transferIndex']}번째 환승'),
+                  Text(
+                    '${transfer['transferIndex']}번째 환승${previousRoute(transfer) ? ' · 이전 경로' : ''}',
+                  ),
                   Text(
                     '당시 예측: ${_probability(transfer['prediction']?['probability'])} · 여유 ${secondsLabel(transfer['prediction']?['slackSeconds'])}',
                   ),

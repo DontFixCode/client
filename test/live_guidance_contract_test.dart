@@ -69,6 +69,50 @@ Future<void> _openBoarding(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('GPS로 추정한 다른 노선의 탑승 후보를 확인하거나 차량번호를 수정해 저장한다', (tester) async {
+    const candidate = {
+      'legIndex': 1,
+      'routeId': '2',
+      'patternKey': 'other-pattern',
+      'directionCode': '1',
+      'vehicleId': '대전75자2511',
+    };
+    final state = _state(
+      guidance: {
+        'boardingEstimate': {
+          'status': 'suggested',
+          'confidence': 'high',
+          'suggestion': {...candidate, 'requiresUserConfirmation': true},
+        },
+      },
+    );
+    addTearDown(state.dispose);
+    await _show(tester, state);
+    expect(state.event, isNull);
+    await tester.tap(find.text('이 버스에 탑승했어요'));
+    await tester.pumpAndSettle();
+    expect(state.event, {
+      'eventType': 'board',
+      'payload': {...candidate, 'confirmation': 'user_confirmed'},
+    });
+
+    await tester.tap(find.text('탑승 버스 직접 확인·수정'));
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField).last;
+    expect(tester.widget<TextField>(field).controller!.text, '대전75자2511');
+    await tester.enterText(field, '대전75자9228');
+    await tester.tap(find.text('확인한 정보 저장'));
+    await tester.pumpAndSettle();
+    expect(state.event, {
+      'eventType': 'board',
+      'payload': {
+        ...candidate,
+        'vehicleId': '대전75자9228',
+        'confirmation': 'user_entered_vehicle',
+      },
+    });
+  });
+
   testWidgets('다음 승차 차량·도착시각과 추정 근거를 실제 안내에 표시한다', (tester) async {
     final state = _state(
       guidance: {

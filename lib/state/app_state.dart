@@ -65,6 +65,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String? _sessionUserId;
   int _sessionGeneration = 0;
   int _journeyGeneration = 0;
+  WebSocketChannel? _routeSyncSocket;
   Json? _pendingEvent;
   String? _pendingEventKey;
   String? _pendingEventJourneyId;
@@ -74,6 +75,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool get hasServerSession =>
       !accountDeleted && auth?.auth.currentSession != null;
   String? get journeyId => journey?['journeyId'] as String?;
+  bool get journeyRouteSyncing => _routeSyncSocket != null;
   Json get progress => journey?['currentProgress'] as Json? ?? {};
   Json? get guidance {
     final data = journey?['guidance'] as Json?;
@@ -434,6 +436,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           if (data['journeyId'] != id) return;
           streamConnected = true;
           streamError = null;
+          final selection = data['selectionVersion'];
+          final current = journey?['selectionVersion'];
+          if (data['lifecycleStatus'] == 'active' &&
+              data['selectedRoute'] == null &&
+              selection is int &&
+              current is int &&
+              selection > current) {
+            unawaited(_refreshRouteSelection(socket, id));
+            return;
+          }
           _applyJourney(data);
         } catch (_) {
           streamError = '안내 응답 형식을 확인할 수 없어요.';
@@ -454,6 +466,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       socket.sink.add(jsonEncode({'type': 'auth', 'accessToken': token}));
     } catch (_) {
       _streamLost(socket);
+    }
+  }
+
+  Future<void> _refreshRouteSelection(
+    WebSocketChannel socket,
+    String id,
+  ) async {
+    // The stream sends progress for the new selection without its route legs.
+    if (identical(_routeSyncSocket, socket)) return;
+    _routeSyncSocket = socket;
+    _notify();
+    try {
+      await restoreJourney(id);
+    } catch (_) {
+      if (_socket == socket && journeyId == id) _streamLost(socket);
+    } finally {
+      if (identical(_routeSyncSocket, socket)) {
+        _routeSyncSocket = null;
+        _notify();
+      }
     }
   }
 
@@ -489,6 +521,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _stopStream() {
+    _routeSyncSocket = null;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     final socket = _socket;
@@ -501,6 +534,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> sendJourneyEvent(String type, Json payload) async {
     if (journeyId == null) return;
+    if (journeyRouteSyncing) {
+      throw const ApiException('ROUTE_SYNCING', '변경된 경로를 불러오는 중이에요.');
+    }
     await _sendEvent(
       journeyId!,
       journey!['stateVersion'] as int,

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../config/app_routes.dart';
 import '../../../data/bus_api.dart';
+import '../../../models/place.dart';
 import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/api_action.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/boarding_estimate.dart';
 import '../../widgets/data_reason.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/journey_rerouting.dart';
 import '../../widgets/route_geometry.dart';
 import '../../widgets/route_timeline.dart';
 import '../../widgets/transfer_results.dart';
@@ -20,16 +23,29 @@ class LiveJourneyGuide extends StatelessWidget {
     AppState state,
     Json leg, {
     bool correction = false,
+    Json? suggestion,
   }) async {
     final journeyId = state.journeyId;
+    final selection = state.journey?['selectionVersion'];
     final boarded = correction ? state.progress['boarded'] as Json? : null;
     if (journeyId == null || (correction && boarded == null)) return;
     final payload = await showDialog<Json>(
       context: context,
-      builder: (_) =>
-          _BoardingDialog(leg: leg, journeyId: journeyId, boarded: boarded),
+      builder: (_) => _BoardingDialog(
+        leg: leg,
+        journeyId: journeyId,
+        boarded: boarded,
+        suggestion: suggestion,
+      ),
     );
     if (payload == null || !context.mounted || state.journeyId != journeyId) {
+      return;
+    }
+    if (state.journey?['selectionVersion'] != selection ||
+        (!correction && state.progress['nextBusLegIndex'] != leg['legIndex'])) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이동 상태가 바뀌었어요. 다음 탑승 구간을 다시 확인해 주세요.')),
+      );
       return;
     }
     await apiAction(
@@ -110,6 +126,10 @@ class LiveJourneyGuide extends StatelessWidget {
         : progress['nextBusLegIndex'];
     final leg = route.busLegs.where((l) => l['legIndex'] == index).firstOrNull;
     final guidance = state.guidance;
+    final estimate = guidance?['boardingEstimate'];
+    final journeyId = state.journeyId;
+    final actionsDisabled =
+        state.busy || state.hasPendingEvent || state.journeyRouteSyncing;
     final arrival = guidance?['arrival'] as Json?;
     final next = guidance?['nextBoarding'] as Json?;
     final alightEta = guidance?['onboard']?['alightEta'] as Json?;
@@ -133,7 +153,7 @@ class LiveJourneyGuide extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: '서버 상태 새로고침',
-            onPressed: state.busy
+            onPressed: state.busy || state.journeyRouteSyncing
                 ? null
                 : () => apiAction(
                     context,
@@ -142,7 +162,7 @@ class LiveJourneyGuide extends StatelessWidget {
             icon: const Icon(Icons.refresh),
           ),
           TextButton(
-            onPressed: state.busy || state.hasPendingEvent
+            onPressed: actionsDisabled
                 ? null
                 : () => _end(context, state, completed: false),
             child: const Text('안내 종료'),
@@ -161,6 +181,35 @@ class LiveJourneyGuide extends StatelessWidget {
           const SizedBox(height: 16),
           Text(title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 16),
+          if (state.journeyRouteSyncing) const Text('변경된 경로를 불러오는 중이에요.'),
+          if (!onboard && leg != null && estimate is Json)
+            BoardingEstimate(
+              estimate: estimate,
+              plannedLeg: leg,
+              enabled: !actionsDisabled,
+              onConfirm: (payload) {
+                if (state.journeyId != journeyId ||
+                    !identical(state.guidance?['boardingEstimate'], estimate) ||
+                    state.progress['nextBusLegIndex'] != payload['legIndex']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('탑승 제안이 바뀌었어요. 새 제안을 확인해 주세요.'),
+                    ),
+                  );
+                  return;
+                }
+                apiAction(
+                  context,
+                  () => state.sendJourneyEvent('board', payload),
+                );
+              },
+              onEdit: (payload) => _board(
+                context,
+                state,
+                leg,
+                suggestion: payload.isEmpty ? null : payload,
+              ),
+            ),
           if (leg != null && onboard)
             AppCard(
               color: AppColors.amberLight,
@@ -254,8 +303,7 @@ class LiveJourneyGuide extends StatelessWidget {
                   ),
                 if (onboard)
                   TextButton(
-                    onPressed:
-                        state.busy || state.hasPendingEvent || leg == null
+                    onPressed: actionsDisabled || leg == null
                         ? null
                         : () => _board(context, state, leg, correction: true),
                     child: const Text('탑승 노선·방향·차량 수정'),
@@ -280,11 +328,13 @@ class LiveJourneyGuide extends StatelessWidget {
             '위치는 앱을 사용하는 동안 전송합니다. 백그라운드 위치·시스템 알림은 준비 중이며, 연결이 끊겨도 서버 이동은 유지됩니다.',
             style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
+          const SizedBox(height: 16),
+          const JourneyRerouting(),
           const SizedBox(height: 24),
           RouteGeometry(
             legs: route.legs,
             origin: route.origin,
-            destination: route.destination,
+            destination: _mapDestination(route),
             api: state.api,
           ),
           const SizedBox(height: 24),
@@ -297,18 +347,13 @@ class LiveJourneyGuide extends StatelessWidget {
             const SizedBox(height: 24),
             TransferResults(journey: state.journey!),
           ],
-          const SizedBox(height: 12),
-          const Text(
-            '버스를 놓쳤거나 목적지가 바뀌었을 때의 대체 경로 추천은 준비 중이에요.',
-            style: TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
           child: FilledButton(
-            onPressed: state.busy || state.hasPendingEvent
+            onPressed: actionsDisabled
                 ? null
                 : () async {
                     if (leg == null) {
@@ -365,6 +410,21 @@ class LiveJourneyGuide extends StatelessWidget {
   }
 }
 
+Place _mapDestination(TravelRoute route) {
+  final end = route.legs.lastOrNull?['to'];
+  if (end is! Json || end['kind'] != 'destination') return route.destination;
+  final location = end['location'];
+  if (location is! Json ||
+      location['latitude'] is! num ||
+      location['longitude'] is! num ||
+      (location['latitude'] == route.destination.latitude &&
+          location['longitude'] == route.destination.longitude)) {
+    return route.destination;
+  }
+  // During a pending destination change, the route legs still end here.
+  return Place.fromJson({...location, 'name': end['name'] ?? '기존 경로 목적지'});
+}
+
 String? _suggestedVehicle(AppState state, Json leg) {
   final next = state.guidance?['nextBoarding'];
   if (next is! Map || next['legIndex'] != leg['legIndex']) return null;
@@ -413,10 +473,12 @@ class _BoardingDialog extends StatefulWidget {
     required this.leg,
     required this.journeyId,
     this.boarded,
+    this.suggestion,
   });
   final Json leg;
   final String journeyId;
   final Json? boarded;
+  final Json? suggestion;
   @override
   State<_BoardingDialog> createState() => _BoardingDialogState();
 }
@@ -434,18 +496,22 @@ class _BoardingDialogState extends State<_BoardingDialog> {
   void initState() {
     super.initState();
     final plannedRoute = widget.leg['route'] as Json;
-    final boarded = widget.boarded;
-    _route = boarded == null || boarded['routeId'] == plannedRoute['id']
+    final initial = widget.boarded ?? widget.suggestion;
+    _route = initial == null || initial['routeId'] == plannedRoute['id']
         ? plannedRoute
-        : {'id': boarded['routeId']};
+        : {'id': initial['routeId']};
     _number.text = _route!['routeNo']?.toString() ?? '';
-    if (boarded != null) {
+    if (initial != null) {
       _pattern = {
-        'patternKey': boarded['patternKey'],
-        'directionCode': boarded['directionCode'],
+        'patternKey': initial['patternKey'],
+        'directionCode': initial['directionCode'],
       };
     }
-    _vehicle.text = boarded?['vehicleId'] as String? ?? '';
+    _vehicle.text = initial?['vehicleId'] as String? ?? '';
+    if (widget.suggestion != null) {
+      _prefilledVehicle = _vehicle.text;
+      _allowPrefill = false;
+    }
   }
 
   @override
