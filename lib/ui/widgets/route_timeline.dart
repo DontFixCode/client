@@ -25,7 +25,7 @@ class RouteTimeline extends StatelessWidget {
             ),
             _TimelineStop(
               title: route.boardingStop,
-              subtitle: '${route.waitMinutes}분 대기 후 탑승 · 예시',
+              subtitle: '${route.waitMinutes}분 대기 후 탑승',
               icon: Icons.directions_bus_rounded,
               badge: BusNumberChip(route.busNumbers.first),
               detail: route.transfers == 0
@@ -96,7 +96,10 @@ class RouteTimeline extends StatelessWidget {
             subtitle:
                 '승차 ${leg['board']?['seq'] ?? '?'}번째 → 하차 ${leg['alight']?['seq'] ?? '?'}번째 경유',
             icon: Icons.directions_bus_rounded,
-            badge: BusNumberChip('${leg['route']?['routeNo'] ?? '미확인'}'),
+            badge: BusNumberChip(
+              '${leg['route']?['routeNo'] ?? '미확인'}',
+              type: leg['route']?['routeType']?.toString(),
+            ),
             detail: _busDetail(leg),
             last: leg == route.legs.last,
           ),

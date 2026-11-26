@@ -48,7 +48,7 @@ class SplashPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       const Text(
-                        '갈아탈 수 있을까, 걱정하지 않도록.\n출발부터 도착까지 버스로가 함께해요.',
+                        '갈아탈 수 있을까, 걱정하지 않도록.\n출발부터 도착까지 갈아타슈가 함께해요.',
                         style: TextStyle(color: AppColors.muted, height: 1.8),
                       ),
                       const SizedBox(height: 30),
@@ -89,7 +89,7 @@ class SplashPage extends StatelessWidget {
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 13,
+                                          fontSize: 14,
                                         ),
                                       ),
                                       SizedBox(height: 3),
@@ -97,7 +97,7 @@ class SplashPage extends StatelessWidget {
                                         '환승 여유까지 생각한 길찾기',
                                         style: TextStyle(
                                           color: AppColors.lime,
-                                          fontSize: 11,
+                                          fontSize: 12,
                                         ),
                                       ),
                                     ],
@@ -141,7 +141,7 @@ class SplashPage extends StatelessWidget {
                       ),
                       child: const Text(
                         '먼저 둘러보기',
-                        style: TextStyle(color: AppColors.muted, fontSize: 13),
+                        style: TextStyle(color: AppColors.muted, fontSize: 14),
                       ),
                     ),
                     const SizedBox(height: 7),
@@ -150,7 +150,7 @@ class SplashPage extends StatelessWidget {
                           ? '대전 일부 구간 · 프론트엔드 체험 버전'
                           : '대전 버스 · 확보된 교통 자료 범위에서 안내',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10, color: AppColors.muted),
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
                     ),
                   ],
                 ),

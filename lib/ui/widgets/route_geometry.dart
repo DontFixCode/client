@@ -172,7 +172,7 @@ class _RouteGeometryState extends State<RouteGeometry> {
         for (final text in [...provenance, if (!loadingStops) ...missing])
           Text(
             text,
-            style: const TextStyle(color: AppColors.muted, fontSize: 11),
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
       ],
     );

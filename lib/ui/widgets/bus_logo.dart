@@ -32,7 +32,7 @@ class BusLogo extends StatelessWidget {
       if (showName) ...[
         const SizedBox(width: 9),
         Text(
-          '버스로',
+          '갈아타슈',
           style: TextStyle(
             fontSize: size * .66,
             fontWeight: FontWeight.w800,

@@ -139,6 +139,10 @@ class TravelRoute {
     );
   }
   int get transfers => busNumbers.length - 1;
+  String? busType(int index) {
+    if (index >= busLegs.length) return null;
+    return busLegs[index]['route']?['routeType']?.toString();
+  }
   String get probabilityLabel => transferProbabilityLabel(probability);
 }
 

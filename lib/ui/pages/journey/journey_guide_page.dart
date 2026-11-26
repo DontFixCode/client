@@ -455,7 +455,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
       3 => '${route.transferStop}에서 내려\n${route.busNumbers.last}번 버스로 갈아타요.',
       4 => '${route.arrivalStop}에서 내려주세요.\n목적지가 가까워지고 있어요.',
       5 => '${route.destination.name}까지\n마지막 도보 구간을 따라가세요.',
-      _ => '오늘도 버스로 함께해주셔서 고마워요.\n이동 결과를 기록해볼까요?',
+      _ => '오늘도 갈아타슈와 함께해주셔서 고마워요.\n이동 결과를 기록해볼까요?',
     };
     final cta = switch (step) {
       0 => '정류장에 도착했어요',
@@ -618,7 +618,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                               '예시 정보',
                               style: TextStyle(
                                 color: AppColors.lime,
-                                fontSize: 11,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -628,7 +628,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                           '${route.origin.name}  →  ${route.destination.name}',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -679,7 +679,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                           Expanded(
                             child: Text(
                               '예시 도착 예상 ${route.waitMinutes}분\n${route.boardingStop}',
-                              style: const TextStyle(fontSize: 13),
+                              style: const TextStyle(fontSize: 14),
                             ),
                           ),
                         ],
@@ -714,7 +714,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                                       ? '탑승 정보 확인이 필요해요'
                                       : '${state.confirmedBus ?? (step == 2 ? route.busNumbers.first : route.busNumbers.last)}번 · 직접 확인',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -722,7 +722,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                                   const Text(
                                     '탑승 정보가 달라 환승 확률을 평가할 수 없어요.',
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 12,
                                       color: AppColors.amber,
                                     ),
                                   ),
@@ -764,7 +764,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                               route.probability == null
                                   ? '예시 차량 정보가 부족해요.\n환승 확률은 확인 불가로 표시해요.'
                                   : '예시 환승 여유 ${route.marginMinutes}분\n주변을 살피며 안전하게 이동해주세요.',
-                              style: const TextStyle(fontSize: 13),
+                              style: const TextStyle(fontSize: 14),
                             ),
                           ),
                         ],
@@ -840,7 +840,7 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                   onPressed: () => _missedBus(state, route),
                   child: const Text(
                     '버스를 놓쳤어요',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    style: TextStyle(color: AppColors.muted, fontSize: 14),
                   ),
                 ),
             ],
@@ -880,7 +880,7 @@ class _TransferOption extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '${route.transferStop} 환승 · 총 ${route.minutes}분',
-            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            style: const TextStyle(color: AppColors.muted, fontSize: 14),
           ),
           const SizedBox(height: 4),
           Text(
@@ -903,7 +903,7 @@ class _GuideMetric extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(color: AppColors.lime, fontSize: 11)),
+      Text(label, style: const TextStyle(color: AppColors.lime, fontSize: 12)),
       const SizedBox(height: 5),
       Text(
         value,

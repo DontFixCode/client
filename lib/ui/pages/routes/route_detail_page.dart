@@ -14,53 +14,53 @@ import '../../widgets/route_timeline.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/status_pill.dart';
 
+Future<void> startRoute(BuildContext context, TravelRoute route) async {
+  final state = AppScope.of(context);
+  if (state.busy) return;
+  if (route.isLive &&
+      (!route.startable ||
+          (route.expiresAt?.isBefore(DateTime.now()) ?? false))) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('이 경로는 지금 시작할 수 없어요. 새로 검색해 주세요.')),
+    );
+    return;
+  }
+  if (state.activeRoute != null) {
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('진행 중인 안내가 있어요'),
+        content: const Text(
+          '기존 안내를 이어보거나, 선택한 경로로 새로 시작할 수 있어요. 새로 시작하면 이전 안내는 종료돼요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('기존 안내 이어보기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('새로 시작'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || replace == null) return;
+    if (!replace) {
+      Navigator.pushNamed(context, AppRoutes.guide);
+      return;
+    }
+  }
+  final ok = await apiAction(context, () async {
+    if (state.activeRoute != null) await state.cancelJourney();
+    await state.startJourney(route);
+  });
+  if (ok && context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
+}
+
 class RouteDetailPage extends StatelessWidget {
   const RouteDetailPage({super.key, required this.route});
   final TravelRoute route;
-
-  Future<void> _start(BuildContext context) async {
-    final state = AppScope.of(context);
-    if (state.busy) return;
-    if (route.isLive &&
-        (!route.startable ||
-            (route.expiresAt?.isBefore(DateTime.now()) ?? false))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이 경로는 지금 시작할 수 없어요. 새로 검색해 주세요.')),
-      );
-      return;
-    }
-    if (state.activeRoute != null) {
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('진행 중인 안내가 있어요'),
-          content: const Text(
-            '기존 안내를 이어보거나, 선택한 경로로 새로 시작할 수 있어요. 새로 시작하면 이전 안내는 종료돼요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('기존 안내 이어보기'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('새로 시작'),
-            ),
-          ],
-        ),
-      );
-      if (!context.mounted || replace == null) return;
-      if (!replace) {
-        Navigator.pushNamed(context, AppRoutes.guide);
-        return;
-      }
-    }
-    final ok = await apiAction(context, () async {
-      if (state.activeRoute != null) await state.cancelJourney();
-      await state.startJourney(route);
-    });
-    if (ok && context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +175,7 @@ class RouteDetailPage extends StatelessWidget {
                   Text(
                     route.reason,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: AppColors.primary,
                     ),
                   ),
@@ -234,7 +234,7 @@ class RouteDetailPage extends StatelessWidget {
             onPressed:
                 AppScope.of(context).busy || (route.isLive && !route.startable)
                 ? null
-                : () => _start(context),
+                : () => startRoute(context, route),
             icon: const Icon(Icons.near_me_rounded, size: 18),
             label: const Text('이 경로로 안내 시작'),
           ),
@@ -253,7 +253,7 @@ class _Metric extends StatelessWidget {
     children: [
       Text(
         label,
-        style: const TextStyle(fontSize: 11, color: AppColors.primary),
+        style: const TextStyle(fontSize: 12, color: AppColors.primary),
       ),
       const SizedBox(height: 3),
       Text(

@@ -97,7 +97,7 @@ class _HomePageState extends State<HomePage> {
                               '대전',
                               style: TextStyle(
                                 color: AppColors.primaryDark,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -127,7 +127,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '오늘의 이동도, 버스로.',
+                    '오늘도 편하게 갈아타슈.',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 6),
@@ -205,7 +205,7 @@ class _HomePageState extends State<HomePage> {
                             child: Text(
                               state.originLocationError!,
                               style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: AppColors.muted,
                               ),
                             ),
@@ -299,14 +299,14 @@ class _HomePageState extends State<HomePage> {
                                     place.name,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                                      fontSize: 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     place.category,
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 12,
                                       color: AppColors.muted,
                                     ),
                                   ),
@@ -405,7 +405,7 @@ class _HomePageState extends State<HomePage> {
                                       const Text(
                                         '예시 정류장 · 도보 3분',
                                         style: TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 12,
                                           color: AppColors.muted,
                                         ),
                                       ),
@@ -548,7 +548,7 @@ class _PlaceField extends StatelessWidget {
             child: Text(
               value ?? '도착지를 입력해 주세요',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: value == null ? AppColors.muted : AppColors.text,
               ),

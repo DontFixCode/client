@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../config/app_routes.dart';
 import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -8,6 +7,7 @@ import '../../widgets/demo_notice.dart';
 import '../../widgets/data_reason.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/route_card.dart';
+import 'route_preview_page.dart';
 
 class RouteResultsPage extends StatefulWidget {
   const RouteResultsPage({super.key});
@@ -112,7 +112,7 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                         : '나에게 맞는 이동을 선택해 보세요.',
                     style: const TextStyle(
                       color: AppColors.muted,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -181,7 +181,7 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                       title: samePlace ? '출발지와 도착지가 같아요' : '아직 안내할 수 없는 구간이에요',
                       message: samePlace
                           ? '다른 도착지를 선택하면\n이동 경로를 비교할 수 있어요.'
-                          : '체험은 대전의 주요 장소 사이에서 가능해요.\n출발지와 도착지를 바꿔 다시 찾아보세요.',
+                          : '출발지와 도착지를 바꿔\n다시 찾아보세요.',
                       action: FilledButton(
                         onPressed: () => Navigator.pop(context),
                         child: const Text('장소 다시 선택하기'),
@@ -202,10 +202,14 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
                             )
                           : RouteCard(
                               route: routes[index],
-                              onTap: () => Navigator.pushNamed(
+                              onTap: () => Navigator.push(
                                 context,
-                                AppRoutes.routeDetail,
-                                arguments: routes[index],
+                                MaterialPageRoute(
+                                  builder: (_) => RoutePreviewPage(
+                                    routes: routes,
+                                    initialIndex: index,
+                                  ),
+                                ),
                               ),
                             ),
                     ),

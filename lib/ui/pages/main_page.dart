@@ -50,7 +50,7 @@ class _MainPageState extends State<MainPage> {
                           '${state.activeRoute!.destination.name}까지 안내 중',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

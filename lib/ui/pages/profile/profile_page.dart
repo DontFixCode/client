@@ -176,7 +176,7 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 18),
                   const Text(
                     '오늘도 한 정거장 더 여유롭게.',
-                    style: TextStyle(color: AppColors.primary, fontSize: 13),
+                    style: TextStyle(color: AppColors.primary, fontSize: 14),
                   ),
                 ],
               ),
@@ -201,7 +201,7 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 6),
                   const Text(
                     '로그인하고 나만의 이동을 시작해요.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    style: TextStyle(color: AppColors.muted, fontSize: 14),
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -238,7 +238,7 @@ class ProfilePage extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '장소 검색에서 별을 눌러\n자주 가는 곳을 저장해 보세요.',
-                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                      style: TextStyle(color: AppColors.muted, fontSize: 14),
                     ),
                   ),
                 ],
@@ -272,7 +272,7 @@ class ProfilePage extends StatelessWidget {
                       subtitle: Text(
                         state.favoritePlaces[index].address,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: AppColors.muted,
                         ),
                       ),
@@ -322,7 +322,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   subtitle: Text(
                     state.demoMode ? '하차·환승 알림 화면 설정 체험' : '시스템 알림 준비 중',
-                    style: TextStyle(fontSize: 11, color: AppColors.muted),
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                   value: state.demoMode && state.alertsEnabled,
                   onChanged: state.demoMode ? state.setAlertsEnabled : null,
@@ -335,7 +335,7 @@ class ProfilePage extends StatelessWidget {
                     size: 22,
                   ),
                   title: const Text(
-                    '버스로 소개',
+                    '갈아타슈 소개',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   trailing: const Icon(
@@ -423,10 +423,10 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'BUSRO · A LITTLE MORE ROOM TO GO',
+            'GALATASHU · A LITTLE MORE ROOM TO GO',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 12,
               letterSpacing: 1.6,
               color: AppColors.muted,
             ),
