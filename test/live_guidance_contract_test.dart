@@ -62,6 +62,14 @@ Future<void> _show(WidgetTester tester, AppState state) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _details(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(360, 2400);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('자세히 보기'));
+  await tester.tap(find.text('자세히 보기'));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openBoarding(WidgetTester tester) async {
   await tester.ensureVisible(find.text('버스에 탑승했어요'));
   await tester.tap(find.text('버스에 탑승했어요'));
@@ -145,12 +153,13 @@ void main() {
     );
     addTearDown(state.dispose);
     await _show(tester, state);
+    await _details(tester);
     expect(find.text('평가한 차량: 대전75자1234'), findsOneWidget);
     expect(find.textContaining('목적지 도착 예상:'), findsOneWidget);
     expect(find.textContaining('승차 정류소 도착 예상:'), findsOneWidget);
-    expect(find.textContaining('제공처 예상 · 수집 시각 기준 근사'), findsOneWidget);
-    expect(find.textContaining('배차간격 기반 추정 · 실제 차량·시각 미확정'), findsOneWidget);
-    expect(find.text('승차 여유: -199초'), findsOneWidget);
+    expect(find.textContaining('실시간 도착정보 · 대략적인 시각'), findsOneWidget);
+    expect(find.textContaining('배차간격으로 예상한 시간'), findsOneWidget);
+    expect(find.text('승차 여유: 버스를 놓칠 수 있어요'), findsOneWidget);
     state.journey!['guidance']['nextBoarding']['slackSeconds'] = null;
     state.notifyListeners();
     await tester.pumpAndSettle();
@@ -182,8 +191,9 @@ void main() {
     );
     addTearDown(state.dispose);
     await _show(tester, state);
+    await _details(tester);
     expect(find.textContaining('하차 정류소 도착 예상:'), findsOneWidget);
-    expect(find.textContaining('앞차 간격 기반 추정 · 검증 전'), findsOneWidget);
+    expect(find.textContaining('앞차 기준으로 예상한 시간'), findsOneWidget);
     expect(find.text('확인한 차량: 대전75자1234'), findsOneWidget);
     state.journey!['guidance'] = {'baseStateVersion': 1};
     state.notifyListeners();

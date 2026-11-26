@@ -76,7 +76,7 @@ class _RoutePreviewPageState extends State<RoutePreviewPage> {
     super.dispose();
   }
 
-  Widget _map(TravelRoute route) {
+  Widget _map(TravelRoute route, double bottomInset) {
     final data = RouteMapData.fromLegs(
       route.legs,
       origin: route.origin,
@@ -89,6 +89,7 @@ class _RoutePreviewPageState extends State<RoutePreviewPage> {
       key: ValueKey(data.fingerprint),
       data: data,
       fallback: fallback,
+      bottomInset: bottomInset,
     );
   }
 
@@ -114,13 +115,7 @@ class _RoutePreviewPageState extends State<RoutePreviewPage> {
         ),
         body: Stack(
           children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 280 + bottom,
-              child: _map(route),
-            ),
+            Positioned.fill(child: _map(route, 340 + bottom)),
             Positioned(
               left: 0,
               right: 0,

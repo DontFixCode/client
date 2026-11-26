@@ -13,11 +13,13 @@ class RouteMapLine {
     required this.walking,
     required this.legIndex,
     this.approximate = false,
+    this.routeType,
   });
   final List<Offset> points; // GeoJSON: x = longitude, y = latitude.
   final bool walking;
   final int legIndex;
   final bool approximate;
+  final String? routeType;
 }
 
 enum RouteEndpoint {
@@ -58,6 +60,9 @@ class RouteMapData {
               walking: walking,
               legIndex: index,
               approximate: approximate,
+              routeType: walking || legs[index]['route'] is! Map
+                  ? null
+                  : legs[index]['route']['routeType']?.toString(),
             ),
           );
         }
@@ -171,11 +176,14 @@ class RouteMapData {
   final List<RouteMapMarker> markers = [];
   final Set<BusPattern> missingPatterns = {};
 
-  ({Offset center, int zoomLevel})? cameraFor(Size viewport) {
+  ({Offset center, int zoomLevel})? cameraFor(
+    Size viewport, {
+    double bottomInset = 0,
+  }) {
     if (!viewport.width.isFinite ||
         !viewport.height.isFinite ||
         viewport.width <= 96 ||
-        viewport.height <= 96) {
+        viewport.height - bottomInset <= 96) {
       return null;
     }
     final points = [
@@ -196,17 +204,19 @@ class RouteMapData {
     // Reserve room for the endpoint badges and the map controls.
     final scale = math.max(
       (maxX - minX) * 256 / (viewport.width - 96),
-      (maxY - minY) * 256 / (viewport.height - 96),
+      (maxY - minY) * 256 / (viewport.height - bottomInset - 96),
     );
-    final y = math.pi * (1 - minY - maxY);
+    final zoomLevel = scale == 0
+        ? 16
+        : (-math.log(scale) / math.ln2).floor().clamp(6, 16);
+    final shift = bottomInset / 2 / (256 * math.pow(2, zoomLevel));
+    final y = math.pi * (1 - minY - maxY - 2 * shift);
     return (
       center: Offset(
         (minX + maxX) * 180 - 180,
         (2 * math.atan(math.exp(y)) - math.pi / 2) * 180 / math.pi,
       ),
-      zoomLevel: scale == 0
-          ? 16
-          : (-math.log(scale) / math.ln2).floor().clamp(6, 16),
+      zoomLevel: zoomLevel,
     );
   }
 

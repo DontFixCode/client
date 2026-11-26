@@ -134,7 +134,7 @@ class TravelRoute {
           : json['startMode'] == 'data_limited'
           ? '자료가 부족해 시간·확률이 일부 확인되지 않았습니다.'
           : json['candidateId'] == recommendedId
-          ? '서버 평가 기준 추천 경로입니다.'
+          ? '실시간 정보로 고른 추천 경로예요.'
           : '서버에서 계산한 경로입니다.',
     );
   }

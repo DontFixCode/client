@@ -16,10 +16,13 @@ class RouteGeometry extends StatefulWidget {
     this.origin,
     this.destination,
     this.api,
+    this.showMap = true,
+    this.showLegend = true,
   });
   final List<Json> legs;
   final Place? origin, destination;
   final BusApi? api;
+  final bool showMap, showLegend;
 
   @override
   State<RouteGeometry> createState() => _RouteGeometryState();
@@ -122,7 +125,7 @@ class _RouteGeometryState extends State<RouteGeometry> {
         )?.toLocal();
         if (source != null) {
           provenance.add(
-            '출처: $source${fetchedAt == null ? '' : ' · 수집: ${fetchedAt.toString().split('.').first}'}',
+            '출처: $source${fetchedAt == null ? '' : ' · 수집: ${clockLabel(fetchedAt)}'}',
           );
         }
       } else if (leg['kind'] == 'bus') {
@@ -136,7 +139,7 @@ class _RouteGeometryState extends State<RouteGeometry> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (lines.isNotEmpty || data.markers.isNotEmpty)
+        if (widget.showMap && (lines.isNotEmpty || data.markers.isNotEmpty))
           ClipRRect(
             borderRadius: BorderRadius.circular(AppTheme.radius),
             child: SizedBox(
@@ -151,8 +154,10 @@ class _RouteGeometryState extends State<RouteGeometry> {
                   : fallback,
             ),
           ),
-        const SizedBox(height: 8),
-        if (loadingStops)
+        if (widget.showMap && widget.showLegend) const SizedBox(height: 8),
+        if (!widget.showLegend)
+          const SizedBox.shrink()
+        else if (loadingStops)
           const Text('누락된 버스 구간의 정류소를 불러오는 중이에요.')
         else if (lines.isEmpty)
           const Text(
@@ -161,19 +166,20 @@ class _RouteGeometryState extends State<RouteGeometry> {
           )
         else if (missing.isNotEmpty || lines.any((line) => !line.approximate))
           Text(
-            '선택한 경로 · 초록색 버스 / 회색 도보${missing.isNotEmpty ? '\n일부 버스 형상은 없어 표시하지 않았어요.' : ''}',
+            '선택한 경로 · 버스 노선 색 선 / 회색 도보${missing.isNotEmpty ? '\n일부 버스 형상은 없어 표시하지 않았어요.' : ''}',
             style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
-        if (approximate.isNotEmpty)
+        if (widget.showLegend && approximate.isNotEmpty)
           Text(
-            '${approximate.join('·')} 보라색 선 · 정류소를 연결한 개략 경로',
-            style: const TextStyle(color: approximateRouteColor, fontSize: 12),
-          ),
-        for (final text in [...provenance, if (!loadingStops) ...missing])
-          Text(
-            text,
+            '${approximate.join('·')} 흐린 선 · 정류소를 연결한 개략 경로',
             style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
+        if (widget.showLegend)
+          for (final text in [...provenance, if (!loadingStops) ...missing])
+            Text(
+              text,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
       ],
     );
   }

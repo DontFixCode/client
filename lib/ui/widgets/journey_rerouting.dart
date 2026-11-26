@@ -216,20 +216,24 @@ class JourneyRerouting extends StatelessWidget {
         children: [
           Text('이동 중 경로 변경', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
+          Row(
             children: [
-              OutlinedButton(
-                onPressed: _available(state) && !onboard && leg != null
-                    ? () => _missed(context, state, leg)
-                    : null,
-                child: const Text('버스를 놓쳤어요'),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _available(state) && !onboard && leg != null
+                      ? () => _missed(context, state, leg)
+                      : null,
+                  child: const Text('버스를 놓쳤어요'),
+                ),
               ),
-              OutlinedButton(
-                onPressed: _available(state)
-                    ? () => _destination(context, state)
-                    : null,
-                child: const Text('목적지 변경'),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _available(state)
+                      ? () => _destination(context, state)
+                      : null,
+                  child: const Text('목적지 변경'),
+                ),
               ),
             ],
           ),

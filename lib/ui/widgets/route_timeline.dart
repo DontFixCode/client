@@ -132,13 +132,7 @@ class RouteTimeline extends StatelessWidget {
       ],
   ].join('\n');
 
-  String _time(dynamic value) =>
-      DateTime.tryParse(value?.toString() ?? '')
-          ?.toLocal()
-          .toString()
-          .split('.')
-          .first ??
-      '확인 불가';
+  String _time(dynamic value) => clockLabel(value);
 
   Widget _transfer(Json transfer, int i) {
     final next = route.legs

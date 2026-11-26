@@ -4,7 +4,13 @@ import 'package:kakao_map_sdk/kakao_map_sdk.dart' as kakao;
 import '../theme/app_theme.dart';
 import 'route_map_data.dart';
 
-const approximateRouteColor = Color(0xFF7546A6);
+Color busLineColor(String? type) {
+  final value = type ?? '';
+  if (value.contains('급행')) return AppColors.busExpress;
+  if (value.contains('간선')) return AppColors.busTrunk;
+  if (value.contains('지선')) return AppColors.busFeeder;
+  return AppColors.primary;
+}
 
 class KakaoMapUnavailable extends StatelessWidget {
   const KakaoMapUnavailable({super.key});
@@ -34,10 +40,16 @@ class KakaoMapUnavailable extends StatelessWidget {
 }
 
 class KakaoRouteMap extends StatefulWidget {
-  const KakaoRouteMap({super.key, required this.data, required this.fallback});
+  const KakaoRouteMap({
+    super.key,
+    required this.data,
+    required this.fallback,
+    this.bottomInset = 0,
+  });
 
   final RouteMapData data;
   final Widget fallback;
+  final double bottomInset;
 
   @override
   State<KakaoRouteMap> createState() => _KakaoRouteMapState();
@@ -71,32 +83,25 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
     setState(() => _controller = controller);
     final generation = ++_generation;
     try {
-      final busStyle = kakao.RouteStyle(
-        AppColors.primaryDark,
-        9,
-        strokeColor: Colors.white,
-        strokeWidth: 3,
-      );
       final walkingStyle = kakao.RouteStyle(
         AppColors.muted,
         6,
         strokeColor: Colors.white,
         strokeWidth: 2,
       );
-      final approximateStyle = kakao.RouteStyle(
-        approximateRouteColor,
-        7,
-        strokeColor: Colors.white,
-        strokeWidth: 2,
-      );
       for (final line in widget.data.lines) {
         if (!_current(controller, generation)) return;
         if (line.points.length < 2) continue;
-        final style = line.approximate
-            ? approximateStyle
-            : line.walking
+        final style = line.walking
             ? walkingStyle
-            : busStyle;
+            : kakao.RouteStyle(
+                busLineColor(
+                  line.routeType,
+                ).withValues(alpha: line.approximate ? .55 : 1),
+                line.approximate ? 7 : 9,
+                strokeColor: Colors.white,
+                strokeWidth: line.approximate ? 2 : 3,
+              );
         await controller.routeLayer.addRoute(
           line.points.map(_position).toList(),
           style,
@@ -197,7 +202,10 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
   Future<void> _fitRoute() async {
     final controller = _controller;
     final generation = _generation;
-    final camera = widget.data.cameraFor(_viewport);
+    final camera = widget.data.cameraFor(
+      _viewport,
+      bottomInset: widget.bottomInset,
+    );
     if (controller == null || camera == null) return;
     try {
       await controller.moveCamera(
@@ -226,7 +234,10 @@ class _KakaoRouteMapState extends State<KakaoRouteMap> {
             });
           }
         }
-        final camera = widget.data.cameraFor(viewport);
+        final camera = widget.data.cameraFor(
+          viewport,
+          bottomInset: widget.bottomInset,
+        );
         return ClipRRect(
           borderRadius: BorderRadius.circular(AppTheme.radius),
           child: Stack(

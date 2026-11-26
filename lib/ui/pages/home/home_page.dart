@@ -326,12 +326,37 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => const TransitPage(),
                         ),
                       ),
-                      child: const ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.directions_bus_outlined),
-                        title: Text('정류소·노선 정보'),
-                        subtitle: Text('주변 정류소, 도착정보, 노선 경유 순서 조회'),
-                        trailing: Icon(Icons.chevron_right),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.directions_bus_outlined,
+                            color: AppColors.primary,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '정류소·노선 정보',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '주변 정류소, 도착정보, 노선 경유 순서 조회',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, size: 18),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -549,7 +574,7 @@ class _PlaceField extends StatelessWidget {
               value ?? '도착지를 입력해 주세요',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: value == null ? FontWeight.w400 : FontWeight.w600,
                 color: value == null ? AppColors.muted : AppColors.text,
               ),
               maxLines: 1,

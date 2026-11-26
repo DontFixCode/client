@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/bus_api.dart';
 import '../theme/app_theme.dart';
 import 'app_card.dart';
+import 'data_reason.dart';
 
 class BoardingEstimate extends StatelessWidget {
   const BoardingEstimate({
@@ -110,7 +111,7 @@ class BoardingEstimate extends StatelessWidget {
           for (final reason in reasons) Text(reason),
           if (evaluatedAt != null)
             Text(
-              '추정 시각: ${evaluatedAt.toString().split('.').first}',
+              '추정 시각: ${clockLabel(evaluatedAt)}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           if (suggested) ...[

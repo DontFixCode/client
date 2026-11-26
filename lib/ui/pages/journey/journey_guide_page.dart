@@ -646,7 +646,9 @@ class _JourneyGuidePageState extends State<JourneyGuidePage> {
                                 label: '환승 여유',
                                 value: route.transfers == 0
                                     ? '환승 없음'
-                                    : '${route.marginMinutes ?? '-'}분',
+                                    : route.marginMinutes == null
+                                    ? '확인 불가'
+                                    : '${route.marginMinutes}분',
                               ),
                             ),
                             Expanded(

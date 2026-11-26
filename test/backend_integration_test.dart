@@ -362,7 +362,7 @@ void main() {
     expect(find.textContaining('아직 출발하지 않은 차량'), findsOneWidget);
     await _show(tester, state, RouteDetailPage(route: route));
     expect(find.text('배차간격 기반 예상'), findsOneWidget);
-    expect(find.text('서버 추천 경로'), findsOneWidget);
+    expect(find.text('추천 경로'), findsOneWidget);
     expect(find.text('여유 있는 환승'), findsNothing);
     await tester.scrollUntilVisible(
       find.byType(RouteTimeline),
@@ -374,8 +374,8 @@ void main() {
           )
           .first,
     );
-    expect(find.textContaining('배차간격 기반 추정 · 실제 차량·시각 미확정'), findsOneWidget);
-    expect(find.textContaining('앞차 간격 기반 추정 · 검증 전'), findsOneWidget);
+    expect(find.textContaining('배차간격으로 예상한 시간'), findsOneWidget);
+    expect(find.textContaining('앞차 기준으로 예상한 시간'), findsOneWidget);
     expect(find.textContaining('예측 기준: 확인 불가'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

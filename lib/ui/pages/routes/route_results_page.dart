@@ -43,7 +43,7 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final routes = List<TravelRoute>.of(state.routeOptions);
+    final routes = List<TravelRoute>.of(state.routeOptions.take(10));
     if (_sort == 1) routes.sort((a, b) => _time(a, b));
     if (_sort == 2) {
       routes.sort((a, b) {
@@ -230,7 +230,7 @@ String _searchMessage(AppState state) {
     'no_path' => '설정된 탐색 범위 안에서 경로를 찾지 못했어요.',
     'out_of_scope' => '출발지 또는 도착지가 지원 구간 밖이에요.',
     'error' => '서버에서 검색을 완료하지 못했어요. 다시 검색해 주세요.',
-    'ready' => '서버에서 계산한 경로예요.',
+    'ready' => '실시간 정보로 계산한 경로예요.',
     _ => '출발지와 도착지를 확인해 주세요.',
   };
   final coverage = result?['coverage'];

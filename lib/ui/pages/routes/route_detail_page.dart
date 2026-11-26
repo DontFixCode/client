@@ -82,7 +82,7 @@ class RouteDetailPage extends StatelessWidget {
                   route.recommended && !route.isLive
                       ? '여유 있는 환승'
                       : route.recommended
-                      ? '서버 추천 경로'
+                      ? '추천 경로'
                       : route.transfers == 0
                       ? '환승 없는 경로'
                       : '환승 ${route.transfers}회',
@@ -92,7 +92,7 @@ class RouteDetailPage extends StatelessWidget {
                   route.estimated
                       ? '배차간격 기반 예상'
                       : route.isLive
-                      ? '서버 경로'
+                      ? '실시간 경로'
                       : '경로 체험',
                   style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
@@ -104,23 +104,39 @@ class RouteDetailPage extends StatelessWidget {
               style: textTheme.headlineSmall,
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 14,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              children: [
-                Text(route.minutesLabel, style: textTheme.displaySmall),
-                const SizedBox(width: 14),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '${route.walkLabel} · 환승 ${route.transfers}회',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.muted,
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.lime),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _SummaryItem(
+                      value: route.minutes == null
+                          ? route.minutesLabel
+                          : '${route.minutes}분',
+                      label: '전체 시간',
+                      large: route.minutes != null,
                     ),
-                  ),
+                    const VerticalDivider(width: 1),
+                    _SummaryItem(
+                      value: route.walkMinutes == null
+                          ? '확인 불가'
+                          : '${route.walkMinutes}분',
+                      label: '도보',
+                    ),
+                    const VerticalDivider(width: 1),
+                    _SummaryItem(
+                      value: route.transfers == 0
+                          ? '없음'
+                          : '${route.transfers}회',
+                      label: '환승',
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 20),
             RouteSegmentBar(route: route),
@@ -263,4 +279,40 @@ class _Metric extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.value,
+    required this.label,
+    this.large = false,
+  });
+  final String value;
+  final String label;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+        child: Column(
+          children: [
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style: large
+                  ? AppNumbers.large.copyWith(color: AppColors.text)
+                  : const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
