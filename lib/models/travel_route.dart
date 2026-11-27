@@ -29,6 +29,8 @@ class TravelRoute {
     this.searchId,
     this.legs = const [],
     this.evaluation = const {},
+    this.cost,
+    this.durationSeconds,
     this.startable = true,
     this.blockedReason,
     this.startMode,
@@ -53,6 +55,8 @@ class TravelRoute {
   final String? searchId, blockedReason, startMode;
   final List<Json> legs;
   final Json evaluation;
+  final Json? cost;
+  final num? durationSeconds;
   final bool startable;
   final DateTime? expiresAt;
   final List<String> reasonCodes;
@@ -75,7 +79,12 @@ class TravelRoute {
     final buses = legs.where((l) => l['kind'] == 'bus').toList();
     final ev = json['evaluation'] as Json? ?? {};
     final transfers = (ev['transfers'] as List? ?? []).cast<Json>();
-    final seconds = ev['expectedTotalSeconds'] ?? ev['nominalTotalSeconds'];
+    final cost = json['cost'] as Json?;
+    final seconds =
+        cost?['timeSeconds'] ??
+        (json['rankingMode'] == 'nominal'
+            ? ev['nominalTotalSeconds']
+            : ev['expectedTotalSeconds'] ?? ev['nominalTotalSeconds']);
     final estimated =
         json['estimated'] == true ||
         buses.any(
@@ -96,6 +105,7 @@ class TravelRoute {
       origin: origin,
       destination: destination,
       minutes: minutesFromSeconds(seconds),
+      durationSeconds: seconds as num?,
       walkMinutes: minutesFromSeconds(ev['walkingSeconds']),
       waitMinutes: minutesFromSeconds(
         (ev['firstBoarding'] as Json?)?['waitSeconds'],
@@ -125,6 +135,7 @@ class TravelRoute {
       expiresAt: expiresAt,
       legs: legs,
       evaluation: ev,
+      cost: cost,
       reasonCodes: reasons,
       estimated: estimated,
       reason: json['startable'] == false
@@ -143,7 +154,48 @@ class TravelRoute {
     if (index >= busLegs.length) return null;
     return busLegs[index]['route']?['routeType']?.toString();
   }
-  String get probabilityLabel => transferProbabilityLabel(probability);
+
+  String get probabilityLabel {
+    final transfer = transferEvaluations.singleOrNull;
+    if (transfer != null && transfer['probabilityRange'] != null) {
+      final label = transferProbabilityText(transfer);
+      if (label != null) return label;
+    }
+    return transferProbabilityLabel(probability);
+  }
+
+  String? get tightestTransferGrade {
+    final grades = transferEvaluations.map((t) => t['slackGrade']).toSet();
+    for (final grade in ['missed', 'tight', 'moderate', 'comfortable']) {
+      if (grades.contains(grade)) return transferGradeLabel(grade);
+    }
+    return null;
+  }
+}
+
+String? transferGradeLabel(Object? grade) => switch (grade) {
+  'missed' => '놓침',
+  'tight' => '빠듯함',
+  'moderate' => '보통',
+  'comfortable' => '넉넉함',
+  _ => null,
+};
+
+String? transferProbabilityText(Json transfer) {
+  String percent(num value) {
+    final rounded = (100 * value).toStringAsFixed(1);
+    return '${rounded.replaceFirst(RegExp(r'\.0$'), '')}%';
+  }
+
+  final range = transfer['probabilityRange'];
+  if (range case [final num lower, final num upper]
+      when lower >= 0 && lower <= upper && upper <= 1) {
+    return lower == upper
+        ? percent(lower)
+        : '${percent(lower)}~${percent(upper)}';
+  }
+  final value = transfer['probability'];
+  return value is num && value >= 0 && value <= 1 ? percent(value) : null;
 }
 
 int? minutesFromSeconds(dynamic seconds) =>

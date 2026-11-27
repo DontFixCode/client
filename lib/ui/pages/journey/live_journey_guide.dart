@@ -133,6 +133,10 @@ class LiveJourneyGuide extends StatelessWidget {
         state.busy || state.hasPendingEvent || state.journeyRouteSyncing;
     final arrival = guidance?['arrival'] as Json?;
     final next = guidance?['nextBoarding'] as Json?;
+    final awaitingDestination =
+        !onboard &&
+        guidance?['reroute']?['kind'] == 'destination' &&
+        next == null;
     final alightEta = guidance?['onboard']?['alightEta'] as Json?;
     final mismatched =
         boarded != null &&
@@ -141,7 +145,9 @@ class LiveJourneyGuide extends StatelessWidget {
                 (boarded['patternKey'] != leg['patternKey'] ||
                     boarded['directionCode'] !=
                         leg['board']?['directionCode'])));
-    final title = leg == null
+    final title = awaitingDestination
+        ? '새 목적지까지의 경로를 확인해요'
+        : leg == null
         ? '목적지까지 마지막 도보로 이동해요'
         : onboard
         ? (mismatched
@@ -159,9 +165,7 @@ class LiveJourneyGuide extends StatelessWidget {
                   !identical(state.guidance?['boardingEstimate'], estimate) ||
                   state.progress['nextBusLegIndex'] != payload['legIndex']) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('탑승 제안이 바뀌었어요. 새 제안을 확인해 주세요.'),
-                  ),
+                  const SnackBar(content: Text('탑승 제안이 바뀌었어요. 새 제안을 확인해 주세요.')),
                 );
                 return;
               }
@@ -230,7 +234,13 @@ class LiveJourneyGuide extends StatelessWidget {
                   estimateCard,
                   const SizedBox(height: 12),
                 ],
-                if (!onboard && leg != null) _NextBus(leg: leg, next: next),
+                if (!onboard && !awaitingDestination && leg != null)
+                  _NextBus(
+                    leg: leg,
+                    next: next,
+                    noCatchable: (guidance?['reasonCodes'] as List? ?? [])
+                        .contains('next_boarding_no_catchable_vehicle'),
+                  ),
                 if (leg != null && onboard)
                   AppCard(
                     color: AppColors.amberLight,
@@ -255,11 +265,14 @@ class LiveJourneyGuide extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('전송 결과를 확인하지 못했어요. 같은 요청을 안전하게 다시 확인할 수 있어요.'),
+                        const Text(
+                          '전송 결과를 확인하지 못했어요. 같은 요청을 안전하게 다시 확인할 수 있어요.',
+                        ),
                         TextButton(
                           onPressed: state.busy
                               ? null
-                              : () => apiAction(context, state.retryPendingEvent),
+                              : () =>
+                                    apiAction(context, state.retryPendingEvent),
                           child: const Text('이동 확인 재전송'),
                         ),
                       ],
@@ -275,13 +288,19 @@ class LiveJourneyGuide extends StatelessWidget {
                         const Expanded(
                           child: Text(
                             '위치를 켜면 더 정확해요',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         TextButton(
                           onPressed: state.busy
                               ? null
-                              : () => apiAction(context, state.startLocationSharing),
+                              : () => apiAction(
+                                  context,
+                                  state.startLocationSharing,
+                                ),
                           child: const Text('켜기'),
                         ),
                       ],
@@ -322,17 +341,24 @@ class LiveJourneyGuide extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            guidance == null ? '최신 상태로 다시 계산 중이에요.' : '남은 이동 평가',
+                            guidance == null
+                                ? '최신 상태로 다시 계산 중이에요.'
+                                : '남은 이동 평가',
                             style: Theme.of(context).textTheme.titleSmall,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             '평가 시점 남은 시간: ${mismatched ? '확인 불가' : _minutes(arrival?['remainingSeconds'])}',
                           ),
-                          if (!mismatched && arrival?['plannedArrivalAt'] != null)
-                            Text('목적지 도착 예상: ${_time(arrival!['plannedArrivalAt'])}'),
+                          if (!mismatched &&
+                              arrival?['plannedArrivalAt'] != null)
+                            Text(
+                              '목적지 도착 예상: ${_time(arrival!['plannedArrivalAt'])}',
+                            ),
                           if (leg == null)
-                            Text('마지막 도보: ${_minutes(arrival?['finalWalkSeconds'])}'),
+                            Text(
+                              '마지막 도보: ${_minutes(arrival?['finalWalkSeconds'])}',
+                            ),
                           if (onboard && !mismatched) ...[
                             Text(
                               '하차 정류소 도착 예상: ${_time(alightEta?['predictedArrivalAt'])}',
@@ -346,14 +372,19 @@ class LiveJourneyGuide extends StatelessWidget {
                           if (!onboard && leg != null)
                             Text('다음 버스 대기: ${_minutes(next?['waitSeconds'])}'),
                           if (!onboard && leg != null) ...[
-                            Text('승차 정류소 도착 예상: ${_time(next?['predictedArrivalAt'])}'),
-                            Text('평가한 차량: ${next?['vehicle']?['vehicleId'] ?? '미확인'}'),
+                            Text(
+                              '승차 정류소 도착 예상: ${_time(next?['predictedArrivalAt'])}',
+                            ),
+                            Text(
+                              '평가한 차량: ${next?['vehicle']?['vehicleId'] ?? '미확인'}',
+                            ),
                             if (next?['upcoming'] case final List upcoming)
                               for (final eta in upcoming.cast<Json>())
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8),
                                   child: Text(
-                                    '다가오는 버스 · ${_time(eta['predictedArrivalAt'])} · 차량 ${eta['vehicleId'] ?? '미확인'}\n${etaSourceLabel(eta)} · 평가 시점 ${_minutes(eta['waitSeconds'])}',
+                                    '다가오는 버스 · ${_time(eta['predictedArrivalAt'])} · 차량 ${eta['vehicleId'] ?? '미확인'}\n${etaSourceLabel(eta)} · 평가 시점 ${_minutes(eta['waitSeconds'])}'
+                                    '${eta['catchable'] == false ? (next?['readyAt'] == null ? ' · 탑승 가능 여부 미확인' : ' · 정류소에 닿기 전 도착') : ''}',
                                   ),
                                 ),
                           ],
@@ -361,13 +392,18 @@ class LiveJourneyGuide extends StatelessWidget {
                             Text('승차 여유: ${slackLabel(next?['slackSeconds'])}'),
                           if (!mismatched)
                             if (arrival?['transferProbabilities']
-                                case final List probabilities)
+                                case final List probabilities) ...[
                               for (var i = 0; i < probabilities.length; i++)
                                 Text(
                                   '남은 ${i + 1}번째 환승: ${_probability(probabilities[i])}',
                                 ),
+                              if (probabilities.any((p) => p is num))
+                                const Text('차량별 도착 오차를 결합한 확률은 예측 범위의 하한이에요.'),
+                            ],
                           if (mismatched)
-                            const Text('확인한 노선·방향이 계획과 달라 현재 경로의 예측을 사용할 수 없어요.'),
+                            const Text(
+                              '확인한 노선·방향이 계획과 달라 현재 경로의 예측을 사용할 수 없어요.',
+                            ),
                           if (guidance?['evaluatedAt'] != null)
                             Text(
                               '평가 시각: ${_time(guidance!['evaluatedAt'])}',
@@ -460,6 +496,8 @@ class LiveJourneyGuide extends StatelessWidget {
                   ? '목적지 도착 확인'
                   : onboard
                   ? '이 정류소에서 내렸어요'
+                  : awaitingDestination
+                  ? '기존 경로 버스에 탑승했어요'
                   : '버스에 탑승했어요',
             ),
           ),
@@ -470,9 +508,14 @@ class LiveJourneyGuide extends StatelessWidget {
 }
 
 class _NextBus extends StatelessWidget {
-  const _NextBus({required this.leg, required this.next});
+  const _NextBus({
+    required this.leg,
+    required this.next,
+    required this.noCatchable,
+  });
   final Json leg;
   final Json? next;
+  final bool noCatchable;
 
   @override
   Widget build(BuildContext context) {
@@ -481,6 +524,16 @@ class _NextBus extends StatelessWidget {
       next?['predictedArrivalAt']?.toString() ?? '',
     )?.toLocal();
     final slack = next?['slackSeconds'];
+    final ready = DateTime.tryParse(next?['readyAt']?.toString() ?? '');
+    final estimated = next?['estimated'] == true;
+    final basis = (next?['etaReasonCodes'] as List? ?? [])
+        .whereType<String>()
+        .where(
+          (code) =>
+              code == 'board_eta_from_selection_snapshot' ||
+              code == 'board_eta_after_passed_vehicle_by_headway',
+        )
+        .map(dataReason);
     const sub = TextStyle(fontSize: 12, color: AppColors.lime);
     const big = TextStyle(
       fontSize: 16,
@@ -490,7 +543,7 @@ class _NextBus extends StatelessWidget {
     final empty = seconds is! num && arrival == null;
     String? status;
     if (empty) {
-      status = '다음 버스를 찾고 있어요';
+      status = noCatchable ? '탑승 가능한 차량 미확인' : '다음 버스를 찾고 있어요';
     } else if (arrival != null && arrival.isBefore(DateTime.now())) {
       status = '지나갔을 수 있어요';
     } else if (seconds is num && seconds < 60) {
@@ -545,7 +598,10 @@ class _NextBus extends StatelessWidget {
             Row(
               children: [
                 if (arrival != null)
-                  Text('정류소 도착 ${clockLabel(arrival)}', style: sub),
+                  Text(
+                    '정류소 도착${estimated ? ' 예상' : ''} ${clockLabel(arrival)}',
+                    style: sub,
+                  ),
                 const Spacer(),
                 if (slack is num && slack < 0)
                   const Text(
@@ -561,6 +617,17 @@ class _NextBus extends StatelessWidget {
               ],
             ),
           ],
+          if (ready != null)
+            Text('탑승 준비 예상 시각 ${clockLabel(ready)}', style: sub),
+          if (estimated)
+            Text(
+              basis.isNotEmpty
+                  ? basis.join(' ')
+                  : next?['etaSource'] == 'headway_estimate'
+                  ? '배차간격으로 예상한 시각이에요.'
+                  : '서버가 추정한 도착 시각이에요.',
+              style: sub,
+            ),
         ],
       ),
     );
@@ -602,11 +669,14 @@ String? _suggestedVehicle(AppState state, Json leg) {
   final selected = number(evaluated is Map ? evaluated['vehicleId'] : null);
   if (selected != null) return selected;
 
+  // New guidance identifies the catchable vehicle itself. Headway-based
+  // predictions can have no plate even while other buses are approaching.
+  if (next.containsKey('readyAt') || next.containsKey('estimated')) return null;
   final upcoming = next['upcoming'];
   if (upcoming is! List) return null;
   final plates = {
     for (final candidate in upcoming.whereType<Map>())
-      ?number(candidate['vehicleId']),
+      if (candidate['catchable'] != false) ?number(candidate['vehicleId']),
   };
   return plates.length == 1 ? plates.single : null;
 }
@@ -614,8 +684,7 @@ String? _suggestedVehicle(AppState state, Json leg) {
 String _minutes(dynamic seconds) =>
     seconds is num ? '${minutesFromSeconds(seconds)}분' : '확인 불가';
 String _probability(dynamic value) {
-  final p = probabilityPercent(value);
-  return p == null ? '확인 불가' : '$p% · ${transferProbabilityLabel(p)}';
+  return transferProbabilityText({'probability': value}) ?? '확인 불가';
 }
 
 String _time(dynamic value) {

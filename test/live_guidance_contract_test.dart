@@ -383,6 +383,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('배차간격 예상과 탑승 준비 시각을 표시하고 앞 차량의 번호를 대신 입력하지 않는다', (tester) async {
+    final state = _state(
+      guidance: {
+        'nextBoarding': {
+          'legIndex': 1,
+          'readyAt': '2030-01-01T10:05:00Z',
+          'predictedArrivalAt': '2030-01-01T10:10:00Z',
+          'waitSeconds': 600,
+          'estimated': true,
+          'etaSource': 'headway_estimate',
+          'upcoming': [
+            {
+              'vehicleId': '앞 차량',
+              'catchable': false,
+              'predictedArrivalAt': '2030-01-01T10:01:00Z',
+            },
+          ],
+        },
+      },
+    );
+    addTearDown(state.dispose);
+    await _show(tester, state);
+    expect(find.textContaining('탑승 준비 예상 시각'), findsOneWidget);
+    expect(find.textContaining('배차간격으로 예상한 시각'), findsOneWidget);
+    await _details(tester);
+    expect(find.textContaining('정류소에 닿기 전 도착'), findsOneWidget);
+    await _openBoarding(tester);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+      isEmpty,
+    );
+    await tester.tap(find.text('지금은 확인하기 어려워요'));
+    state.journey!['guidance'] = {
+      'baseStateVersion': 1,
+      'reasonCodes': ['next_boarding_no_catchable_vehicle'],
+      'nextBoarding': {'predictedArrivalAt': null, 'legIndex': 1},
+    };
+    state.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('탑승 가능한 차량 미확인'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('차량번호만 정정할 때 실제 저장한 노선·패턴·방향을 보존한다', (tester) async {
     final state = _state(
       movement: 'onboard',

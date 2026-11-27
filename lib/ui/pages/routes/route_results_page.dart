@@ -37,20 +37,26 @@ class _RouteResultsPageState extends State<RouteResultsPage> {
     super.dispose();
   }
 
-  int _time(TravelRoute a, TravelRoute b) =>
-      (a.minutes ?? 0x7fffffff).compareTo(b.minutes ?? 0x7fffffff);
+  num _travelSeconds(TravelRoute route) =>
+      route.durationSeconds ??
+      (route.minutes == null ? double.infinity : route.minutes! * 60);
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final routes = List<TravelRoute>.of(state.routeOptions.take(10));
-    if (_sort == 1) routes.sort((a, b) => _time(a, b));
+    final candidates = List<TravelRoute>.of(state.routeOptions);
+    if (_sort == 1) {
+      candidates.sort((a, b) => _travelSeconds(a).compareTo(_travelSeconds(b)));
+    }
     if (_sort == 2) {
-      routes.sort((a, b) {
+      candidates.sort((a, b) {
         final transfers = a.transfers.compareTo(b.transfers);
-        return transfers == 0 ? _time(a, b) : transfers;
+        return transfers == 0
+            ? _travelSeconds(a).compareTo(_travelSeconds(b))
+            : transfers;
       });
     }
+    final routes = candidates.take(10).toList();
     final samePlace = state.destination?.id == state.origin.id;
     return Scaffold(
       appBar: AppBar(

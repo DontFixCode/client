@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/congestion.dart';
 import '../../models/travel_route.dart';
 import '../theme/app_theme.dart';
 import 'app_card.dart';
@@ -72,7 +73,12 @@ class RouteCard extends StatelessWidget {
                   child: Text(
                     route.transfers == 0
                         ? '${route.walkLabel} · 환승 없음'
-                        : '${route.walkLabel} · 환승 ${route.transfers}회',
+                        : [
+                            route.walkLabel,
+                            '환승 ${route.transfers}회',
+                            if (route.tightestTransferGrade case final grade?)
+                              '최소 여유 $grade',
+                          ].join(' · '),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.muted,
@@ -126,6 +132,8 @@ class RouteCard extends StatelessWidget {
             '${route.boardingStop}에서 탑승',
             style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
+          if (routeCongestionSummary(route.busLegs) case final String summary)
+            Text(summary, style: textTheme.bodySmall),
           const SizedBox(height: 14),
           const Divider(),
           const SizedBox(height: 14),
@@ -158,7 +166,11 @@ class RouteCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (probability != null) TransferProbabilityPill(probability),
+                if (probability != null)
+                  TransferProbabilityPill(
+                    probability,
+                    label: route.probabilityLabel,
+                  ),
               ],
             )
           else

@@ -1,5 +1,6 @@
 import 'package:bus/config/app_routes.dart';
 import 'package:bus/data/demo_data.dart';
+import 'package:bus/models/travel_route.dart';
 import 'package:bus/state/app_state.dart';
 import 'package:bus/ui/pages/main_page.dart';
 import 'package:bus/ui/pages/routes/route_results_page.dart';
@@ -7,6 +8,31 @@ import 'package:bus/ui/theme/app_theme.dart';
 import 'package:bus/ui/widgets/route_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _RankedRoutes extends AppState {
+  _RankedRoutes() : super(demoMode: true);
+
+  @override
+  List<TravelRoute> get routeOptions => [
+    for (var i = 0; i <= 10; i++)
+      TravelRoute.fromJson(
+        {
+          'candidateId': 'candidate-$i',
+          // The last candidate is quicker but ranks lower due to congestion.
+          'cost': {'timeSeconds': 659 - i, 'costSeconds': 659 + i},
+          'legs': [
+            {
+              'kind': 'bus',
+              'route': {'routeNo': '$i'},
+            },
+          ],
+        },
+        searchId: 's',
+        origin: DemoData.places.first,
+        destination: DemoData.places[1],
+      ),
+  ];
+}
 
 Widget _app(AppState state, Widget home) => AppScope(
   state: state,
@@ -28,6 +54,21 @@ void _phoneSize(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('혼잡도를 반영한 추천순과 전체 후보의 실제 소요시간순으로 전환한다', (tester) async {
+    final state = _RankedRoutes();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_app(state, const RouteResultsPage()));
+    String first() =>
+        tester.widget<RouteCard>(find.byType(RouteCard).first).route.id;
+    expect(first(), 'candidate-0');
+    await tester.tap(find.text('빠른순'));
+    await tester.pumpAndSettle();
+    expect(first(), 'candidate-10');
+    await tester.tap(find.text('추천순'));
+    await tester.pumpAndSettle();
+    expect(first(), 'candidate-0');
+  });
+
   testWidgets('장소를 검색해 즐겨찾기를 바꾸고 선택한 경로를 비교한다', (tester) async {
     _phoneSize(tester);
     final state = AppState(demoMode: true);

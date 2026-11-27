@@ -4,8 +4,9 @@ import '../../models/travel_route.dart';
 import '../theme/app_theme.dart';
 
 class TransferProbabilityPill extends StatelessWidget {
-  const TransferProbabilityPill(this.probability, {super.key});
+  const TransferProbabilityPill(this.probability, {super.key, this.label});
   final int? probability;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -15,14 +16,11 @@ class TransferProbabilityPill extends StatelessWidget {
       < 60 => (AppColors.amber, AppColors.amberLight),
       _ => (AppColors.success, AppColors.successLight),
     };
+    final text = label ?? transferProbabilityLabel(probability);
     return Semantics(
-      label: '환승 성공 가능성 ${transferProbabilityLabel(probability)}',
+      label: '환승 성공 가능성 $text',
       excludeSemantics: true,
-      child: StatusPill(
-        transferProbabilityLabel(probability),
-        color: color,
-        background: background,
-      ),
+      child: StatusPill(text, color: color, background: background),
     );
   }
 }

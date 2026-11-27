@@ -4,6 +4,7 @@ import 'package:bus/ui/theme/app_theme.dart';
 import 'package:bus/ui/widgets/route_card.dart';
 import 'package:bus/ui/widgets/route_timeline.dart';
 import 'package:bus/ui/widgets/status_pill.dart';
+import 'package:bus/ui/widgets/transfer_evaluation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +25,50 @@ TravelRoute _route({int? probability, int? margin, bool direct = false}) =>
     );
 
 void main() {
+  testWidgets('차량별 오차 결합은 범위와 표본 근거를 표시하고 서버의 환승 등급을 사용한다', (tester) async {
+    final transfer = {
+      'probability': 0.694,
+      'probabilityRange': [0.694, 0.944],
+      'slackGrade': 'tight',
+      'slackSeconds': 60,
+      'slackEstimated': true,
+      'probabilitySource': 'marginal_ecdf',
+      'probabilitySampleCounts': {'paired': 0, 'front': 6, 'next': 8},
+      'reasonCodes': ['marginal_error_source_approximated'],
+    };
+    await tester.pumpWidget(
+      MaterialApp(home: TransferEvaluation(transfer: transfer)),
+    );
+    expect(
+      find.textContaining('69.4%~94.4% · 여유 60초 · 빠듯함 · 예상 시각 기준'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('도착 오차를 독립으로'), findsOneWidget);
+    expect(find.textContaining('짝 표본 0개 · 앞 차량 6개 · 다음 차량 8개'), findsOneWidget);
+    expect(find.textContaining('근사했어요'), findsOneWidget);
+
+    final route = TravelRoute.fromJson(
+      {
+        'candidateId': 'selected',
+        'evaluation': {
+          'transfers': [transfer],
+        },
+      },
+      searchId: 'search',
+      origin: _route().origin,
+      destination: _route().destination,
+    );
+    expect(route.probabilityLabel, '69.4%~94.4%');
+    expect(route.tightestTransferGrade, '빠듯함');
+    expect(
+      transferProbabilityText({
+        'probabilityRange': [0.8, 0.8],
+      }),
+      '80%',
+    );
+    expect(transferProbabilityText({}), isNull);
+  });
+
   test('환승 성공 가능성은 20 단위 5단계이며 미확인 값을 구분한다', () {
     for (final (probability, label) in [
       (null, '확인 불가'),

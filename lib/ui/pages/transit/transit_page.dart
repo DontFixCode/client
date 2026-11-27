@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/bus_api.dart';
+import '../../../models/congestion.dart';
 import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../widgets/api_action.dart';
@@ -275,7 +276,13 @@ List<Widget> arrivalWidgets(Json arrivals) => [
     ListTile(
       title: Text('${item['route']?['routeNo'] ?? '노선 미확인'}번'),
       subtitle: Text(
-        '${item['predictedArrivalAt'] == null ? '기준 시각 미확인 · 원천 예상 ${minutesFromSeconds(item['remainingSeconds']) ?? '?'}분' : '도착 예상 ${_date(item['predictedArrivalAt'])}'}\n차량 ${item['vehicle']?['vehicleNo'] ?? '미확인'} · ${item['stopsAway'] ?? '?'}정류소 전',
+        [
+          item['predictedArrivalAt'] == null
+              ? '기준 시각 미확인 · 원천 예상 ${minutesFromSeconds(item['remainingSeconds']) ?? '?'}분'
+              : '도착 예상 ${_date(item['predictedArrivalAt'])}',
+          '차량 ${item['vehicle']?['vehicleNo'] ?? '미확인'} · ${item['stopsAway'] ?? '?'}정류소 전',
+          ?congestionDetail(item['congestion']),
+        ].join('\n'),
       ),
     ),
 ];

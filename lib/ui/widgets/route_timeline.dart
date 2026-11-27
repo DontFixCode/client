@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../data/bus_api.dart';
+import '../../models/congestion.dart';
 import 'data_reason.dart';
 
 import '../../models/travel_route.dart';
 import '../theme/app_theme.dart';
 import 'route_card.dart';
 import 'status_pill.dart';
+import 'transfer_evaluation.dart';
 
 class RouteTimeline extends StatelessWidget {
   const RouteTimeline({super.key, required this.route});
@@ -125,6 +127,7 @@ class RouteTimeline extends StatelessWidget {
     leg['rideSeconds'] == null
         ? '버스시간 확인 불가'
         : '버스 ${minutesFromSeconds(leg['rideSeconds'])}분',
+    ?congestionDetail(leg['congestion']),
     for (final (label, key) in [('승차', 'boardEta'), ('하차', 'alightEta')])
       if (leg[key] case final Json eta) ...[
         '$label 예상: ${_time(eta['predictedArrivalAt'])} · ${etaSourceLabel(eta)}',
@@ -138,8 +141,6 @@ class RouteTimeline extends StatelessWidget {
     final next = route.legs
         .where((l) => l['legIndex'] == transfer['nextLegIndex'])
         .firstOrNull;
-    final probability = probabilityPercent(transfer['probability']);
-    final slack = transfer['slackSeconds'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -147,25 +148,7 @@ class RouteTimeline extends StatelessWidget {
           '${i + 1}번째 환승 · ${next?['route']?['routeNo'] ?? '연결'}번 · ${next?['board']?['name'] ?? ''}',
         ),
         const SizedBox(height: 6),
-        Wrap(
-          spacing: 12,
-          runSpacing: 6,
-          children: [
-            TransferProbabilityPill(probability),
-            Text(
-              slack == null
-                  ? '환승 여유 확인 불가'
-                  : '환승 여유 ${(slack as num) < 60 ? secondsLabel(slack) : '${minutesFromSeconds(slack)}분'}',
-            ),
-          ],
-        ),
-        for (final reason in List<String>.from(
-          transfer['reasonCodes'] ?? [],
-        ).map(dataReason).toSet())
-          Text(
-            reason,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
+        TransferEvaluation(transfer: transfer),
       ],
     );
   }

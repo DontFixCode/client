@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../data/bus_api.dart';
-import '../../models/travel_route.dart';
 import '../../state/app_state.dart';
 import 'api_action.dart';
 import 'app_card.dart';
-import 'data_reason.dart';
+import 'transfer_evaluation.dart';
 
 class TransferResults extends StatelessWidget {
   const TransferResults({super.key, required this.journey, this.onUpdated});
@@ -170,8 +169,9 @@ class TransferResults extends StatelessWidget {
                   Text(
                     '${transfer['transferIndex']}번째 환승${previousRoute(transfer) ? ' · 이전 경로' : ''}',
                   ),
-                  Text(
-                    '당시 예측: ${_probability(transfer['prediction']?['probability'])} · 여유 ${secondsLabel(transfer['prediction']?['slackSeconds'])}',
+                  TransferEvaluation(
+                    transfer: transfer['prediction'] as Json? ?? const {},
+                    historical: true,
                   ),
                   Text(
                     '예측 저장 시각: ${_date(transfer['prediction']?['fixedAt'])}',
@@ -214,11 +214,6 @@ String _result(dynamic value) => switch (value) {
   'unknown' => '확인 불가',
   _ => '미입력',
 };
-String _probability(dynamic value) {
-  final percent = probabilityPercent(value);
-  return percent == null ? '확률 확인 불가' : '$percent%';
-}
-
 String _date(dynamic value) =>
     DateTime.tryParse(value?.toString() ?? '')
         ?.toLocal()

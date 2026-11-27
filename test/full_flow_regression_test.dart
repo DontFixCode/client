@@ -137,8 +137,9 @@ void main() {
     await tester.enterText(find.byType(TextField), '시청');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
+    final result = find.text('대전광역시청').hitTestable();
     await tester.scrollUntilVisible(
-      find.text('대전광역시청'),
+      result,
       100,
       scrollable: find
           .descendant(
@@ -147,8 +148,9 @@ void main() {
           )
           .first,
     );
+    await tester.pumpAndSettle();
     expect(tester.view.viewInsets.bottom, 300);
-    await tester.tap(find.text('대전광역시청'));
+    await tester.tap(result);
     await tester.pumpAndSettle();
     expect(selected?.name, '대전광역시청');
     expect(selected?.externalId, 'city-hall');

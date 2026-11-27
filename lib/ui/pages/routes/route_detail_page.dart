@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../config/app_routes.dart';
+import '../../../models/congestion.dart';
 import '../../../models/travel_route.dart';
 import '../../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -195,6 +196,10 @@ class RouteDetailPage extends StatelessWidget {
                       color: AppColors.primary,
                     ),
                   ),
+                  if (rankingCostLabel(route.cost) case final String cost) ...[
+                    const SizedBox(height: 8),
+                    Text(cost, style: textTheme.bodySmall),
+                  ],
                   if (route.transfers > 0) ...[
                     const SizedBox(height: 14),
                     Row(

@@ -27,7 +27,14 @@ class RouteSwipeCard extends StatelessWidget {
   String get info {
     if (route.transfers == 0) return '${route.walkLabel} · 갈아타지 않아요';
     final margin = route.marginMinutes;
-    return '${route.walkLabel} · ${margin == null ? '환승 여유 확인 불가' : '환승 여유 $margin분'}';
+    return [
+      route.walkLabel,
+      if (margin != null) '환승 여유 $margin분',
+      if (route.tightestTransferGrade case final grade?)
+        '최소 여유 $grade'
+      else if (margin == null)
+        '환승 여유 확인 불가',
+    ].join(' · ');
   }
 
   @override
@@ -62,7 +69,12 @@ class RouteSwipeCard extends StatelessWidget {
                       style: TextStyle(color: AppColors.muted, fontSize: 12),
                     ),
                     const SizedBox(width: 6),
-                    TransferProbabilityPill(route.probability),
+                    Flexible(
+                      child: TransferProbabilityPill(
+                        route.probability,
+                        label: route.probabilityLabel,
+                      ),
+                    ),
                   ],
                 ],
               ),
