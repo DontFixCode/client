@@ -12,6 +12,7 @@ import '../../widgets/boarding_estimate.dart';
 import '../../widgets/data_reason.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/journey_rerouting.dart';
+import '../../widgets/route_card.dart';
 import '../../widgets/route_geometry.dart';
 import '../../widgets/route_timeline.dart';
 import '../../widgets/transfer_results.dart';
@@ -147,6 +148,36 @@ class LiveJourneyGuide extends StatelessWidget {
               ? '확인한 버스로 이동 중이에요'
               : '${leg['route']?['routeNo'] ?? ''}번 버스로 이동 중이에요')
         : '${leg['board']?['name'] ?? '승차 정류소'}에서 버스에 탑승해요';
+    final suggested = estimate is Json && estimate['status'] == 'suggested';
+    final estimateCard = !onboard && leg != null && estimate is Json
+        ? BoardingEstimate(
+            estimate: estimate,
+            plannedLeg: leg,
+            enabled: !actionsDisabled,
+            onConfirm: (payload) {
+              if (state.journeyId != journeyId ||
+                  !identical(state.guidance?['boardingEstimate'], estimate) ||
+                  state.progress['nextBusLegIndex'] != payload['legIndex']) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('탑승 제안이 바뀌었어요. 새 제안을 확인해 주세요.'),
+                  ),
+                );
+                return;
+              }
+              apiAction(
+                context,
+                () => state.sendJourneyEvent('board', payload),
+              );
+            },
+            onEdit: (payload) => _board(
+              context,
+              state,
+              leg,
+              suggestion: payload.isEmpty ? null : payload,
+            ),
+          )
+        : null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('함께 가는 중'),
@@ -169,184 +200,212 @@ class LiveJourneyGuide extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+      body: Column(
         children: [
-          Text(
-            state.streamConnected
-                ? '실시간 안내 연결됨'
-                : state.streamError ?? '실시간 안내 연결 중…',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+            child: RouteGeometry(
+              legs: route.legs,
+              origin: route.origin,
+              destination: _mapDestination(route),
+              api: state.api,
+              showLegend: false,
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          if (state.journeyRouteSyncing) const Text('변경된 경로를 불러오는 중이에요.'),
-          if (!onboard && leg != null && estimate is Json)
-            BoardingEstimate(
-              estimate: estimate,
-              plannedLeg: leg,
-              enabled: !actionsDisabled,
-              onConfirm: (payload) {
-                if (state.journeyId != journeyId ||
-                    !identical(state.guidance?['boardingEstimate'], estimate) ||
-                    state.progress['nextBusLegIndex'] != payload['legIndex']) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('탑승 제안이 바뀌었어요. 새 제안을 확인해 주세요.'),
-                    ),
-                  );
-                  return;
-                }
-                apiAction(
-                  context,
-                  () => state.sendJourneyEvent('board', payload),
-                );
-              },
-              onEdit: (payload) => _board(
-                context,
-                state,
-                leg,
-                suggestion: payload.isEmpty ? null : payload,
-              ),
-            ),
-          if (leg != null && onboard)
-            AppCard(
-              color: AppColors.amberLight,
-              child: Text(
-                mismatched
-                    ? '탑승 정보가 계획과 달라 하차 안내를 확인할 수 없어요.\n계획 하차: ${leg['alight']?['name'] ?? '미확인'} · 실제 경유 여부를 확인해 주세요.'
-                    : '하차: ${leg['alight']?['name'] ?? '하차 정류소'}\n남은 정류장 수·하차 임박 알림은 아직 제공하지 않아요.',
-              ),
-            ),
-          if (state.hasPendingEvent)
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('전송 결과를 확인하지 못했어요. 같은 요청을 안전하게 다시 확인할 수 있어요.'),
-                  TextButton(
-                    onPressed: state.busy
-                        ? null
-                        : () => apiAction(context, state.retryPendingEvent),
-                    child: const Text('이동 확인 재전송'),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 16),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
               children: [
                 Text(
-                  guidance == null ? '최신 상태로 다시 계산 중이에요.' : '남은 이동 평가',
-                  style: Theme.of(context).textTheme.titleSmall,
+                  state.streamConnected
+                      ? '실시간 안내 연결됨'
+                      : state.streamError ?? '실시간 안내 연결 중…',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '평가 시점 남은 시간: ${mismatched ? '확인 불가' : _minutes(arrival?['remainingSeconds'])}',
-                ),
-                if (!mismatched && arrival?['plannedArrivalAt'] != null)
-                  Text('목적지 도착 예상: ${_time(arrival!['plannedArrivalAt'])}'),
-                if (leg == null)
-                  Text('마지막 도보: ${_minutes(arrival?['finalWalkSeconds'])}'),
-                if (onboard && !mismatched) ...[
-                  Text(
-                    '하차 정류소 도착 예상: ${_time(alightEta?['predictedArrivalAt'])}',
-                  ),
-                  if (alightEta != null)
-                    Text(
-                      '평가 시점 하차까지 ${_minutes(alightEta['waitSeconds'])} · ${etaSourceLabel(alightEta)}',
-                    ),
-                  Text('확인한 차량: ${boarded?['vehicleId'] ?? '미확인'}'),
+                const SizedBox(height: 16),
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 16),
+                if (state.journeyRouteSyncing) const Text('변경된 경로를 불러오는 중이에요.'),
+                if (estimateCard != null && suggested) ...[
+                  estimateCard,
+                  const SizedBox(height: 12),
                 ],
-                if (!onboard && leg != null)
-                  Text('다음 버스 대기: ${_minutes(next?['waitSeconds'])}'),
-                if (!onboard && leg != null) ...[
-                  Text('승차 정류소 도착 예상: ${_time(next?['predictedArrivalAt'])}'),
-                  Text('평가한 차량: ${next?['vehicle']?['vehicleId'] ?? '미확인'}'),
-                  if (next?['upcoming'] case final List upcoming)
-                    for (final eta in upcoming.cast<Json>())
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '다가오는 버스 · ${_time(eta['predictedArrivalAt'])} · 차량 ${eta['vehicleId'] ?? '미확인'}\n${etaSourceLabel(eta)} · 평가 시점 ${_minutes(eta['waitSeconds'])}',
-                        ),
-                      ),
-                ],
-                if (leg != null && !onboard)
-                  Text('승차 여유: ${secondsLabel(next?['slackSeconds'])}'),
-                if (!mismatched)
-                  if (arrival?['transferProbabilities']
-                      case final List probabilities)
-                    for (var i = 0; i < probabilities.length; i++)
-                      Text(
-                        '남은 ${i + 1}번째 환승: ${_probability(probabilities[i])}',
-                      ),
-                if (mismatched)
-                  const Text('확인한 노선·방향이 계획과 달라 현재 경로의 예측을 사용할 수 없어요.'),
-                if (guidance?['evaluatedAt'] != null)
-                  Text(
-                    '평가 시각: ${_time(guidance!['evaluatedAt'])}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                for (final reason in List<String>.from(
-                  guidance?['reasonCodes'] ?? [],
-                ).map(dataReason).toSet())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                if (!onboard && leg != null) _NextBus(leg: leg, next: next),
+                if (leg != null && onboard)
+                  AppCard(
+                    color: AppColors.amberLight,
                     child: Text(
-                      reason,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      mismatched
+                          ? '탑승 정보가 계획과 달라 하차 안내를 확인할 수 없어요.\n계획 하차: ${leg['alight']?['name'] ?? '미확인'} · 실제 경유 여부를 확인해 주세요.'
+                          : '하차: ${leg['alight']?['name'] ?? '하차 정류소'}\n남은 정류장 수·하차 임박 알림은 아직 제공하지 않아요.',
                     ),
                   ),
-                if (onboard)
-                  TextButton(
-                    onPressed: actionsDisabled || leg == null
-                        ? null
-                        : () => _board(context, state, leg, correction: true),
-                    child: const Text('탑승 노선·방향·차량 수정'),
+                if (leg != null && onboard)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: actionsDisabled
+                          ? null
+                          : () => _board(context, state, leg, correction: true),
+                      child: const Text('탑승 노선·방향·차량 수정'),
+                    ),
                   ),
+                if (state.hasPendingEvent)
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('전송 결과를 확인하지 못했어요. 같은 요청을 안전하게 다시 확인할 수 있어요.'),
+                        TextButton(
+                          onPressed: state.busy
+                              ? null
+                              : () => apiAction(context, state.retryPendingEvent),
+                          child: const Text('이동 확인 재전송'),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!state.locationSharing) ...[
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.my_location, color: AppColors.primary),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            '위치를 켜면 더 정확해요',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: state.busy
+                              ? null
+                              : () => apiAction(context, state.startLocationSharing),
+                          child: const Text('켜기'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (state.locationError != null)
+                  Text(
+                    state.locationError!,
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                const SizedBox(height: 12),
+                const JourneyRerouting(),
+                const SizedBox(height: 16),
+                const Divider(),
+                ExpansionTile(
+                  key: const PageStorageKey('journeyDetails'),
+                  title: const Text('자세히 보기'),
+                  tilePadding: EdgeInsets.zero,
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RouteGeometry(
+                      legs: route.legs,
+                      origin: route.origin,
+                      destination: _mapDestination(route),
+                      api: state.api,
+                      showMap: false,
+                    ),
+                    const SizedBox(height: 16),
+                    if (estimateCard != null && !suggested) ...[
+                      estimateCard,
+                      const SizedBox(height: 16),
+                    ],
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            guidance == null ? '최신 상태로 다시 계산 중이에요.' : '남은 이동 평가',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '평가 시점 남은 시간: ${mismatched ? '확인 불가' : _minutes(arrival?['remainingSeconds'])}',
+                          ),
+                          if (!mismatched && arrival?['plannedArrivalAt'] != null)
+                            Text('목적지 도착 예상: ${_time(arrival!['plannedArrivalAt'])}'),
+                          if (leg == null)
+                            Text('마지막 도보: ${_minutes(arrival?['finalWalkSeconds'])}'),
+                          if (onboard && !mismatched) ...[
+                            Text(
+                              '하차 정류소 도착 예상: ${_time(alightEta?['predictedArrivalAt'])}',
+                            ),
+                            if (alightEta != null)
+                              Text(
+                                '평가 시점 하차까지 ${_minutes(alightEta['waitSeconds'])} · ${etaSourceLabel(alightEta)}',
+                              ),
+                            Text('확인한 차량: ${boarded?['vehicleId'] ?? '미확인'}'),
+                          ],
+                          if (!onboard && leg != null)
+                            Text('다음 버스 대기: ${_minutes(next?['waitSeconds'])}'),
+                          if (!onboard && leg != null) ...[
+                            Text('승차 정류소 도착 예상: ${_time(next?['predictedArrivalAt'])}'),
+                            Text('평가한 차량: ${next?['vehicle']?['vehicleId'] ?? '미확인'}'),
+                            if (next?['upcoming'] case final List upcoming)
+                              for (final eta in upcoming.cast<Json>())
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    '다가오는 버스 · ${_time(eta['predictedArrivalAt'])} · 차량 ${eta['vehicleId'] ?? '미확인'}\n${etaSourceLabel(eta)} · 평가 시점 ${_minutes(eta['waitSeconds'])}',
+                                  ),
+                                ),
+                          ],
+                          if (leg != null && !onboard)
+                            Text('승차 여유: ${slackLabel(next?['slackSeconds'])}'),
+                          if (!mismatched)
+                            if (arrival?['transferProbabilities']
+                                case final List probabilities)
+                              for (var i = 0; i < probabilities.length; i++)
+                                Text(
+                                  '남은 ${i + 1}번째 환승: ${_probability(probabilities[i])}',
+                                ),
+                          if (mismatched)
+                            const Text('확인한 노선·방향이 계획과 달라 현재 경로의 예측을 사용할 수 없어요.'),
+                          if (guidance?['evaluatedAt'] != null)
+                            Text(
+                              '평가 시각: ${_time(guidance!['evaluatedAt'])}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          for (final reason in List<String>.from(
+                            guidance?['reasonCodes'] ?? [],
+                          ).map(dataReason).toSet())
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                reason,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '위치는 앱을 사용하는 동안 전송합니다. 백그라운드 위치·시스템 알림은 준비 중이며, 연결이 끊겨도 서버 이동은 유지됩니다.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                    ExpansionTile(
+                      title: const Text('선택 당시 경로·환승 평가'),
+                      tilePadding: EdgeInsets.zero,
+                      children: [RouteTimeline(route: route)],
+                    ),
+                    if ((state.journey!['transferResults'] as List? ?? [])
+                        .isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      TransferResults(journey: state.journey!),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: state.busy
-                ? null
-                : () => apiAction(context, state.startLocationSharing),
-            icon: const Icon(Icons.my_location),
-            label: const Text('현재 위치 전송·안내에 사용'),
-          ),
-          if (state.locationError != null)
-            Text(
-              state.locationError!,
-              style: const TextStyle(color: AppColors.error),
-            ),
-          const Text(
-            '위치는 앱을 사용하는 동안 전송합니다. 백그라운드 위치·시스템 알림은 준비 중이며, 연결이 끊겨도 서버 이동은 유지됩니다.',
-            style: TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
-          const SizedBox(height: 16),
-          const JourneyRerouting(),
-          const SizedBox(height: 24),
-          RouteGeometry(
-            legs: route.legs,
-            origin: route.origin,
-            destination: _mapDestination(route),
-            api: state.api,
-          ),
-          const SizedBox(height: 24),
-          ExpansionTile(
-            title: const Text('선택 당시 경로·환승 평가'),
-            children: [RouteTimeline(route: route)],
-          ),
-          if ((state.journey!['transferResults'] as List? ?? [])
-              .isNotEmpty) ...[
-            const SizedBox(height: 24),
-            TransferResults(journey: state.journey!),
-          ],
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -405,6 +464,104 @@ class LiveJourneyGuide extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NextBus extends StatelessWidget {
+  const _NextBus({required this.leg, required this.next});
+  final Json leg;
+  final Json? next;
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = next?['waitSeconds'];
+    final arrival = DateTime.tryParse(
+      next?['predictedArrivalAt']?.toString() ?? '',
+    )?.toLocal();
+    final slack = next?['slackSeconds'];
+    const sub = TextStyle(fontSize: 12, color: AppColors.lime);
+    const big = TextStyle(
+      fontSize: 16,
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+    );
+    final empty = seconds is! num && arrival == null;
+    String? status;
+    if (empty) {
+      status = '다음 버스를 찾고 있어요';
+    } else if (arrival != null && arrival.isBefore(DateTime.now())) {
+      status = '지나갔을 수 있어요';
+    } else if (seconds is num && seconds < 60) {
+      status = '곧 도착';
+    } else if (seconds is! num) {
+      status = '확인 중';
+    }
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              BusNumberChip(
+                '${leg['route']?['routeNo'] ?? ''}',
+                type: leg['route']?['routeType'] as String?,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${leg['alight']?['name'] ?? '하차 정류소'} 방향',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
+                ),
+              ),
+              if (status != null)
+                Flexible(
+                  child: Text(status, textAlign: TextAlign.end, style: big),
+                )
+              else ...[
+                Text(
+                  '${minutesFromSeconds(seconds)}',
+                  style: AppNumbers.large.copyWith(color: Colors.white),
+                ),
+                const Text(
+                  '분 뒤',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (!empty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (arrival != null)
+                  Text('정류소 도착 ${clockLabel(arrival)}', style: sub),
+                const Spacer(),
+                if (slack is num && slack < 0)
+                  const Text(
+                    '놓칠 수 있어요',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.errorLight,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else if (slack is num)
+                  Text('승차 여유 ${slackLabel(slack)}', style: sub),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -3,15 +3,31 @@ import '../../data/bus_api.dart';
 String secondsLabel(dynamic value) =>
     value is num && value.isFinite ? '${value.round()}초' : '확인 불가';
 
+String slackLabel(dynamic value) {
+  if (value is! num || !value.isFinite) return '확인 불가';
+  if (value < 0) return '버스를 놓칠 수 있어요';
+  return '${(value / 60).floor()}분';
+}
+
+String clockLabel(dynamic value) {
+  final time = value is DateTime
+      ? value.toLocal()
+      : DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+  if (time == null) return '확인 불가';
+  final hour = time.hour.toString().padLeft(2, '0');
+  final minute = time.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
 String etaSourceLabel(Json eta) => switch (eta['etaSource']) {
-  'headway_estimate' => '배차간격 기반 추정 · 실제 차량·시각 미확정',
-  'leading_vehicle_gap' => '앞차 간격 기반 추정 · 검증 전',
-  'historical_segments' => '과거 구간 주행시간 기반 추정',
+  'headway_estimate' => '배차간격으로 예상한 시간',
+  'leading_vehicle_gap' => '앞차 기준으로 예상한 시간',
+  'historical_segments' => '과거 기록으로 예상한 시간',
   'provider' =>
     eta['basisSource'] == 'server_received_at_approx'
-        ? '제공처 예상 · 수집 시각 기준 근사'
-        : '제공처 예상',
-  _ => '예상 근거 미제공',
+        ? '실시간 도착정보 · 대략적인 시각'
+        : '실시간 도착정보',
+  _ => '예상 근거 없음',
 };
 
 String dataReason(String code) => switch (code) {

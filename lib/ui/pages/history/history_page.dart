@@ -81,7 +81,7 @@ class HistoryPage extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '${_date(record.completedAt)} ${_time(record.completedAt)} 완료',
-                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                style: const TextStyle(color: AppColors.muted, fontSize: 14),
               ),
               const SizedBox(height: 24),
               AppCard(
@@ -157,13 +157,13 @@ class HistoryPage extends StatelessWidget {
           width: 112,
           child: Text(
             label,
-            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            style: const TextStyle(color: AppColors.muted, fontSize: 14),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -286,7 +286,7 @@ class HistoryPage extends StatelessWidget {
                                   Text(
                                     '${route.origin.name} → ${route.destination.name}',
                                     style: const TextStyle(
-                                      fontSize: 15,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),

@@ -117,7 +117,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ? '이메일 확인 후 재설정 안내를 보여드려요.\n이 화면에서는 실제 메일이 발송되지 않아요.'
                       : '재설정 이메일이 오지 않으면 스팸함을 확인해 주세요.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  style: TextStyle(color: AppColors.muted, fontSize: 14),
                 ),
               ],
             ),

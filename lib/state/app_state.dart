@@ -42,6 +42,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<dynamic>? _socketSubscription;
   StreamSubscription<Position>? _positionSubscription;
+  bool get locationSharing => _positionSubscription != null;
   WebSocketChannel? _socket;
   Timer? _reconnectTimer;
   bool _disposed = false;

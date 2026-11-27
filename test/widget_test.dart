@@ -16,7 +16,7 @@ void main() {
     await tester.ensureVisible(find.text('먼저 둘러보기'));
     await tester.tap(find.text('먼저 둘러보기'));
     await tester.pumpAndSettle();
-    expect(find.text('오늘의 이동도, 버스로.'), findsOneWidget);
+    expect(find.text('오늘도 편하게 갈아타슈.'), findsOneWidget);
     expect(
       tester
           .widgetList<NavigationDestination>(find.byType(NavigationDestination))

@@ -10,12 +10,10 @@ class TransferProbabilityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, background) = switch (probability) {
-      null => (AppColors.muted, AppColors.background),
-      < 20 => (Colors.white, AppColors.error),
-      < 40 => (AppColors.error, AppColors.error.withValues(alpha: .1)),
+      null => (AppColors.muted, AppColors.surface),
+      < 40 => (AppColors.error, AppColors.errorLight),
       < 60 => (AppColors.amber, AppColors.amberLight),
-      < 80 => (AppColors.primaryDark, AppColors.primaryLight),
-      _ => (Colors.white, AppColors.primary),
+      _ => (AppColors.success, AppColors.successLight),
     };
     return Semantics(
       label: '환승 성공 가능성 ${transferProbabilityLabel(probability)}',
@@ -60,7 +58,7 @@ class StatusPill extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -87,7 +87,7 @@ class _SignupPageState extends State<SignupPage> {
                           : '경로·확률은 확보한 교통 자료 범위에서 제공됩니다. 자료가 부족한 경우 확인 불가로 표시합니다. 백그라운드 알림과 일부 기능은 준비 중입니다.')
                     : privacy
                     ? '현재는 프론트엔드 체험 버전입니다. 입력한 이름과 이메일은 앱 실행 중에만 사용하며 외부로 전송하지 않습니다. 비밀번호는 저장하지 않습니다. 앱을 다시 시작하면 체험 정보가 초기화됩니다.'
-                    : '버스로는 대전에서의 편안한 버스 이동을 돕는 서비스입니다. 배경은 카카오 지도입니다. 현재 경로와 환승 확률, 운행정보는 화면 체험을 위한 예시이며 실제 이동 안내에 사용할 수 없습니다. 실제 계정은 생성되지 않습니다.',
+                    : '갈아타슈는 대전에서의 편안한 버스 이동을 돕는 서비스입니다. 배경은 카카오 지도입니다. 현재 경로와 환승 확률, 운행정보는 화면 체험을 위한 예시이며 실제 이동 안내에 사용할 수 없습니다. 실제 계정은 생성되지 않습니다.',
               ),
               const SizedBox(height: 24),
               FilledButton(
@@ -115,7 +115,7 @@ class _SignupPageState extends State<SignupPage> {
       Expanded(
         child: GestureDetector(
           onTap: () => onChanged(!value),
-          child: Text(label, style: const TextStyle(fontSize: 13)),
+          child: Text(label, style: const TextStyle(fontSize: 14)),
         ),
       ),
       IconButton(
@@ -133,7 +133,7 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) => AuthScaffold(
     title: '여유로운 이동의 시작',
-    subtitle: '버스로와 함께, 대전의 일상을 이어가요.',
+    subtitle: '갈아타슈와 함께, 대전의 일상을 이어가요.',
     child: Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,

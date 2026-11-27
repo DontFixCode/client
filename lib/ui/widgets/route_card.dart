@@ -26,7 +26,7 @@ class RouteCard extends StatelessWidget {
             children: [
               StatusPill(
                 route.recommended
-                    ? '버스로 추천'
+                    ? '갈아타슈 추천'
                     : route.transfers == 0
                     ? '환승 없이'
                     : route.id == 'fast'
@@ -53,23 +53,26 @@ class RouteCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                route.minutes?.toString() ?? '미정',
-                style: textTheme.displaySmall?.copyWith(fontSize: 34),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(left: 3, bottom: 4),
-                child: Text(
-                  '분',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              if (route.minutes == null)
+                Text('시간 미정', style: textTheme.titleLarge)
+              else ...[
+                Text('${route.minutes}', style: textTheme.displaySmall),
+                const Padding(
+                  padding: EdgeInsets.only(left: 3, bottom: 4),
+                  child: Text(
+                    '분',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(width: 14),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Text(
-                    '${route.walkLabel} · 환승 ${route.transfers}회',
+                    route.transfers == 0
+                        ? '${route.walkLabel} · 환승 없음'
+                        : '${route.walkLabel} · 환승 ${route.transfers}회',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.muted,
@@ -79,8 +82,10 @@ class RouteCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          RouteSegmentBar(route: route),
+          if (!route.isLive) ...[
+            const SizedBox(height: 14),
+            RouteSegmentBar(route: route),
+          ],
           const SizedBox(height: 14),
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -98,7 +103,11 @@ class RouteCard extends StatelessWidget {
                   size: 16,
                   color: AppColors.muted,
                 ),
-                BusNumberChip(route.busNumbers[i], blue: i > 0),
+                BusNumberChip(
+                  route.busNumbers[i],
+                  blue: i > 0,
+                  type: route.busType(i),
+                ),
               ],
               const Icon(
                 Icons.chevron_right_rounded,
@@ -112,7 +121,12 @@ class RouteCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 17),
+          const SizedBox(height: 8),
+          Text(
+            '${route.boardingStop}에서 탑승',
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          const SizedBox(height: 14),
           const Divider(),
           const SizedBox(height: 14),
           if (route.transfers > 0)
@@ -192,36 +206,43 @@ class RouteCard extends StatelessWidget {
 }
 
 class BusNumberChip extends StatelessWidget {
-  const BusNumberChip(this.number, {super.key, this.blue = false});
+  const BusNumberChip(this.number, {super.key, this.blue = false, this.type});
   final String number;
   final bool blue;
+  final String? type;
+
+  Color? get typeColor {
+    final value = type ?? '';
+    if (value.contains('급행')) return AppColors.busExpress;
+    if (value.contains('간선')) return AppColors.busTrunk;
+    if (value.contains('지선')) return AppColors.busFeeder;
+    return null;
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      color: blue ? AppColors.blueLight : AppColors.primaryLight,
-      borderRadius: BorderRadius.circular(7),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.directions_bus_rounded,
-          size: 13,
-          color: blue ? AppColors.blue : AppColors.primaryDark,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          number,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: blue ? AppColors.blue : AppColors.primaryDark,
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final fill = typeColor;
+    final color = fill != null
+        ? Colors.white
+        : blue
+        ? AppColors.blue
+        : AppColors.primaryDark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: fill ?? (blue ? AppColors.blueLight : AppColors.primaryLight),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.directions_bus_rounded, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(number, style: AppNumbers.small.copyWith(color: color)),
+        ],
+      ),
+    );
+  }
 }
 
 class RouteSegmentBar extends StatelessWidget {
@@ -236,7 +257,11 @@ class RouteSegmentBar extends StatelessWidget {
           children: [
             for (var i = 0; i < route.busNumbers.length; i++) ...[
               if (i > 0) const Icon(Icons.chevron_right, size: 16),
-              BusNumberChip(route.busNumbers[i], blue: i > 0),
+              BusNumberChip(
+                route.busNumbers[i],
+                blue: i > 0,
+                type: route.busType(i),
+              ),
             ],
           ],
         )
@@ -265,7 +290,7 @@ class RouteSegmentBar extends StatelessWidget {
                           : '${route.marginMinutes}분',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -286,7 +311,7 @@ class RouteSegmentBar extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

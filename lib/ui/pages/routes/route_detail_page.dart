@@ -14,53 +14,53 @@ import '../../widgets/route_timeline.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/status_pill.dart';
 
+Future<void> startRoute(BuildContext context, TravelRoute route) async {
+  final state = AppScope.of(context);
+  if (state.busy) return;
+  if (route.isLive &&
+      (!route.startable ||
+          (route.expiresAt?.isBefore(DateTime.now()) ?? false))) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('이 경로는 지금 시작할 수 없어요. 새로 검색해 주세요.')),
+    );
+    return;
+  }
+  if (state.activeRoute != null) {
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('진행 중인 안내가 있어요'),
+        content: const Text(
+          '기존 안내를 이어보거나, 선택한 경로로 새로 시작할 수 있어요. 새로 시작하면 이전 안내는 종료돼요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('기존 안내 이어보기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('새로 시작'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || replace == null) return;
+    if (!replace) {
+      Navigator.pushNamed(context, AppRoutes.guide);
+      return;
+    }
+  }
+  final ok = await apiAction(context, () async {
+    if (state.activeRoute != null) await state.cancelJourney();
+    await state.startJourney(route);
+  });
+  if (ok && context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
+}
+
 class RouteDetailPage extends StatelessWidget {
   const RouteDetailPage({super.key, required this.route});
   final TravelRoute route;
-
-  Future<void> _start(BuildContext context) async {
-    final state = AppScope.of(context);
-    if (state.busy) return;
-    if (route.isLive &&
-        (!route.startable ||
-            (route.expiresAt?.isBefore(DateTime.now()) ?? false))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이 경로는 지금 시작할 수 없어요. 새로 검색해 주세요.')),
-      );
-      return;
-    }
-    if (state.activeRoute != null) {
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('진행 중인 안내가 있어요'),
-          content: const Text(
-            '기존 안내를 이어보거나, 선택한 경로로 새로 시작할 수 있어요. 새로 시작하면 이전 안내는 종료돼요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('기존 안내 이어보기'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('새로 시작'),
-            ),
-          ],
-        ),
-      );
-      if (!context.mounted || replace == null) return;
-      if (!replace) {
-        Navigator.pushNamed(context, AppRoutes.guide);
-        return;
-      }
-    }
-    final ok = await apiAction(context, () async {
-      if (state.activeRoute != null) await state.cancelJourney();
-      await state.startJourney(route);
-    });
-    if (ok && context.mounted) Navigator.pushNamed(context, AppRoutes.guide);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +82,7 @@ class RouteDetailPage extends StatelessWidget {
                   route.recommended && !route.isLive
                       ? '여유 있는 환승'
                       : route.recommended
-                      ? '서버 추천 경로'
+                      ? '추천 경로'
                       : route.transfers == 0
                       ? '환승 없는 경로'
                       : '환승 ${route.transfers}회',
@@ -92,7 +92,7 @@ class RouteDetailPage extends StatelessWidget {
                   route.estimated
                       ? '배차간격 기반 예상'
                       : route.isLive
-                      ? '서버 경로'
+                      ? '실시간 경로'
                       : '경로 체험',
                   style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
@@ -104,23 +104,39 @@ class RouteDetailPage extends StatelessWidget {
               style: textTheme.headlineSmall,
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 14,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              children: [
-                Text(route.minutesLabel, style: textTheme.displaySmall),
-                const SizedBox(width: 14),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '${route.walkLabel} · 환승 ${route.transfers}회',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.muted,
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.lime),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _SummaryItem(
+                      value: route.minutes == null
+                          ? route.minutesLabel
+                          : '${route.minutes}분',
+                      label: '전체 시간',
+                      large: route.minutes != null,
                     ),
-                  ),
+                    const VerticalDivider(width: 1),
+                    _SummaryItem(
+                      value: route.walkMinutes == null
+                          ? '확인 불가'
+                          : '${route.walkMinutes}분',
+                      label: '도보',
+                    ),
+                    const VerticalDivider(width: 1),
+                    _SummaryItem(
+                      value: route.transfers == 0
+                          ? '없음'
+                          : '${route.transfers}회',
+                      label: '환승',
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 20),
             RouteSegmentBar(route: route),
@@ -175,7 +191,7 @@ class RouteDetailPage extends StatelessWidget {
                   Text(
                     route.reason,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: AppColors.primary,
                     ),
                   ),
@@ -234,7 +250,7 @@ class RouteDetailPage extends StatelessWidget {
             onPressed:
                 AppScope.of(context).busy || (route.isLive && !route.startable)
                 ? null
-                : () => _start(context),
+                : () => startRoute(context, route),
             icon: const Icon(Icons.near_me_rounded, size: 18),
             label: const Text('이 경로로 안내 시작'),
           ),
@@ -253,7 +269,7 @@ class _Metric extends StatelessWidget {
     children: [
       Text(
         label,
-        style: const TextStyle(fontSize: 11, color: AppColors.primary),
+        style: const TextStyle(fontSize: 12, color: AppColors.primary),
       ),
       const SizedBox(height: 3),
       Text(
@@ -263,4 +279,40 @@ class _Metric extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.value,
+    required this.label,
+    this.large = false,
+  });
+  final String value;
+  final String label;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+        child: Column(
+          children: [
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style: large
+                  ? AppNumbers.large.copyWith(color: AppColors.text)
+                  : const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -2,20 +2,53 @@ import 'package:flutter/material.dart';
 
 /// 브랜드 색상은 여기서 한 번에 변경합니다.
 abstract final class AppColors {
-  static const primary = Color(0xFF6A7D35);
-  static const primaryDark = Color(0xFF46552B);
-  static const primaryLight = Color(0xFFEEF1E4);
-  static const lime = Color(0xFFE2E8C8);
-  static const background = Color(0xFFF0F2EF);
-  static const surface = Color(0xFFFFFFFF);
-  static const text = Color(0xFF202824);
-  static const muted = Color(0xFF687068);
-  static const border = Color(0xFFE2E5DF);
-  static const blue = Color(0xFF5874AA);
-  static const blueLight = Color(0xFFEDF0F7);
-  static const amber = Color(0xFF8D7228);
-  static const amberLight = Color(0xFFF6EFDB);
-  static const error = Color(0xFF802D29);
+  static const primary = Color(0xFF12296B);
+  static const primaryDark = Color(0xFF0B1740);
+  static const primaryLight = Color(0xFFE7EBF6);
+  static const lime = Color(0xFFC5D3F6);
+  static const background = Color(0xFFFFFFFF);
+  static const surface = Color(0xFFF5F7FB);
+  static const text = Color(0xFF0B1740);
+  static const muted = Color(0xFF55607F);
+  static const border = Color(0xFFD5DBEA);
+  static const blue = Color(0xFF3350A8);
+  static const blueLight = Color(0xFFC5D3F6);
+  static const amber = Color(0xFF9A5B00);
+  static const amberLight = Color(0xFFFFF1D6);
+  static const error = Color(0xFFC62828);
+  static const errorLight = Color(0xFFFDE7E4);
+  static const success = Color(0xFF3A7519);
+  static const successLight = Color(0xFFE6F4D7);
+  static const accent = Color(0xFF7CC242);
+  static const busExpress = Color(0xFFD93A2B);
+  static const busTrunk = Color(0xFF1E50C8);
+  static const busFeeder = Color(0xFF0A6E50);
+}
+
+abstract final class AppNumbers {
+  static const hero = TextStyle(
+    fontFamily: 'Archivo Black',
+    fontSize: 56,
+    height: 1,
+  );
+  static const large = TextStyle(
+    fontFamily: 'IBM Plex Sans Condensed',
+    fontSize: 28,
+    height: 32 / 28,
+    fontWeight: FontWeight.w700,
+  );
+  static const medium = TextStyle(
+    fontFamily: 'IBM Plex Sans Condensed',
+    fontSize: 20,
+    height: 24 / 20,
+    fontWeight: FontWeight.w700,
+  );
+  static const small = TextStyle(
+    fontFamily: 'IBM Plex Sans Condensed',
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w700,
+  );
 }
 
 abstract final class AppTheme {
@@ -36,48 +69,53 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,
-      fontFamily: 'Apple SD Gothic Neo',
+      fontFamily: 'IBM Plex Sans KR',
       fontFamilyFallback: const ['Noto Sans KR', 'Malgun Gothic', 'sans-serif'],
       textTheme: const TextTheme(
         displaySmall: TextStyle(
-          fontSize: 36,
-          height: 1.25,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1.6,
+          fontSize: 32,
+          height: 40 / 32,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.96,
         ),
         headlineMedium: TextStyle(
-          fontSize: 28,
-          height: 1.35,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1,
+          fontSize: 24,
+          height: 32 / 24,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.48,
         ),
         headlineSmall: TextStyle(
           fontSize: 24,
-          height: 1.4,
+          height: 32 / 24,
           fontWeight: FontWeight.w700,
-          letterSpacing: -.7,
+          letterSpacing: -0.48,
         ),
         titleLarge: TextStyle(
           fontSize: 20,
-          height: 1.4,
+          height: 28 / 20,
           fontWeight: FontWeight.w700,
-          letterSpacing: -.5,
+          letterSpacing: -0.4,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
-          height: 1.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -.3,
+          height: 24 / 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.16,
         ),
         titleSmall: TextStyle(
           fontSize: 14,
-          height: 1.5,
-          fontWeight: FontWeight.w700,
+          height: 20 / 14,
+          fontWeight: FontWeight.w600,
         ),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.6, letterSpacing: -.3),
-        bodyMedium: TextStyle(fontSize: 14, height: 1.6, letterSpacing: -.2),
-        bodySmall: TextStyle(fontSize: 12, height: 1.5, color: AppColors.muted),
-        labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        bodyLarge: TextStyle(fontSize: 16, height: 24 / 16),
+        bodyMedium: TextStyle(fontSize: 14, height: 20 / 14),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          height: 16 / 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.muted,
+        ),
+        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ).apply(bodyColor: AppColors.text, displayColor: AppColors.text),
       appBarTheme: const AppBarTheme(
@@ -87,8 +125,10 @@ abstract final class AppTheme {
         elevation: 0,
         titleTextStyle: TextStyle(
           color: AppColors.text,
-          fontSize: 18,
+          fontFamily: 'IBM Plex Sans KR',
+          fontSize: 24,
           fontWeight: FontWeight.w700,
+          letterSpacing: -0.48,
         ),
         iconTheme: IconThemeData(color: AppColors.text),
       ),
@@ -99,7 +139,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -151,7 +191,7 @@ abstract final class AppTheme {
         height: 76,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w700
                 : FontWeight.w500,

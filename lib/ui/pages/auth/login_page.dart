@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) => AuthScaffold(
     title: '다시 만나 반가워요',
-    subtitle: '오늘의 이동도, 버스로 함께해요.',
+    subtitle: '오늘의 이동도, 갈아타슈와 함께해요.',
     child: Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -94,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
                   Navigator.pushNamed(context, AppRoutes.forgotPassword),
               child: const Text(
                 '비밀번호를 잊으셨나요?',
-                style: TextStyle(fontSize: 13, color: AppColors.muted),
+                style: TextStyle(fontSize: 14, color: AppColors.muted),
               ),
             ),
           ),
@@ -108,7 +108,7 @@ class _LoginPageState extends State<LoginPage> {
             OutlinedButton.icon(
               onPressed: () {
                 AppScope.of(context)
-                    .signIn(name: '버스로 여행자', email: 'demo@busro.example');
+                    .signIn(name: '갈아타슈 여행자', email: 'demo@busro.example');
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   AppRoutes.main,
@@ -124,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const Text(
                 '아직 계정이 없으신가요?',
-                style: TextStyle(color: AppColors.muted, fontSize: 13),
+                style: TextStyle(color: AppColors.muted, fontSize: 14),
               ),
               TextButton(
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.signup),

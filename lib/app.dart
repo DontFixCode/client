@@ -90,7 +90,7 @@ class _BusroAppState extends State<BusroApp> {
     child: MaterialApp(
       navigatorKey: _navigator,
       scaffoldMessengerKey: _messenger,
-      title: '버스로',
+      title: '갈아타슈',
       debugShowCheckedModeBanner: false,
       initialRoute: _state.hasServerSession
           ? AppRoutes.main
